@@ -1,0 +1,24 @@
+{
+  "name": "zerotrustguard",
+  "version": "1.0.0",
+  "description": "A Zero Trust–based security platform featuring adaptive access control, behavioral monitoring, and real-time threat detection with a centralized dashboard.",
+  "main": "index.js",
+ "scripts": {
+  "dev": "concurrently \"npm start --prefix backend\" \"npm run dev --prefix frontend\""
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Yash-Gadhiya/-ZeroTrustGuard-Adaptive-Security-Intelligence-Platform.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "bugs": {
+    "url": "https://github.com/Yash-Gadhiya/-ZeroTrustGuard-Adaptive-Security-Intelligence-Platform/issues"
+  },
+  "homepage": "https://github.com/Yash-Gadhiya/-ZeroTrustGuard-Adaptive-Security-Intelligence-Platform#readme",
+  "devDependencies": {
+    "concurrently": "^9.2.1"
+  }
+}

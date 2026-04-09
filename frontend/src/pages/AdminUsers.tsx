@@ -1,0 +1,193 @@
+import { useEffect, useState } from "react";
+import api from "../api/axios";
+import { AppSidebar } from "@/components/AppSidebar";
+import { PinModal } from "@/components/PinModal";
+import { Trash2 } from "lucide-react";
+
+interface User {
+  id: number;
+  email: string;
+  role: string;
+  department: string | null;
+  is_blocked: boolean;
+  block_reason: string | null;
+}
+
+export default function AdminUsers() {
+  const [users, setUsers] = useState<User[]>([]);
+  const [selectedDept, setSelectedDept] = useState("all");
+
+  const token = localStorage.getItem("ztg_token");
+
+  const [pinModalOpen, setPinModalOpen] = useState(false);
+  const [pendingAction, setPendingAction] = useState<{ type: 'delete' | 'toggle', id: number } | null>(null);
+  const [adminPinError, setAdminPinError] = useState("");
+
+  const fetchUsers = async () => {
+    try {
+      const res = await api.get("/api/soc/users");
+      const filtered = res.data.filter(
+        (u: User) => u.role !== "admin" && u.role !== "super_admin"
+      );
+      setUsers(filtered);
+    } catch (err) {
+      console.error("Failed to fetch users");
+    }
+  };
+
+  const confirmToggleBlock = (id: number) => {
+    setPendingAction({ type: 'toggle', id });
+    setAdminPinError("");
+    setPinModalOpen(true);
+  };
+
+  const confirmDeleteUser = (id: number) => {
+    if (!window.confirm("Are you sure you want to delete this user?")) return;
+    setPendingAction({ type: 'delete', id });
+    setAdminPinError("");
+    setPinModalOpen(true);
+  };
+
+  const processAdminAction = async (pin: string) => {
+    if (!pendingAction) return;
+    try {
+      const headers = { "x-mfa-pin": pin };
+      
+      if (pendingAction.type === 'delete') {
+        await api.delete(`/api/users/${pendingAction.id}`, { headers });
+      } else if (pendingAction.type === 'toggle') {
+        await api.put(`/api/soc/users/${pendingAction.id}/toggle-block`, {}, { headers });
+      }
+      
+      setPinModalOpen(false);
+      setPendingAction(null);
+      fetchUsers();
+    } catch (err: any) {
+      if (err.response?.data?.mfaRequired) {
+        setAdminPinError(err.response?.data?.message || "Invalid PIN");
+      } else {
+        setPinModalOpen(false);
+        setPendingAction(null);
+        alert(err.response?.data?.message || "Failed to perform admin action.");
+      }
+    }
+  };
+
+  useEffect(() => {
+    fetchUsers();
+  }, []);
+
+  const filteredUsers =
+    selectedDept === "all"
+      ? users
+      : users.filter((u) => u.department === selectedDept);
+
+  return (
+    <div className="flex min-h-screen bg-background">
+      <AppSidebar />
+      <PinModal
+        isOpen={pinModalOpen}
+        onClose={() => setPinModalOpen(false)}
+        onSubmit={processAdminAction}
+        error={adminPinError}
+        title="Admin Action Required"
+        description="Enter your Admin PIN to proceed."
+      />
+
+      <main className="flex-1 p-8 overflow-auto">
+        <h1 className="text-2xl font-bold text-foreground mb-4">
+          User Management
+        </h1>
+
+        {/* Department Filter */}
+        <div className="mb-4">
+          <select
+            value={selectedDept}
+            onChange={(e) => setSelectedDept(e.target.value)}
+            className="px-3 py-2 rounded-md bg-secondary border border-border text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
+          >
+            <option value="all">All Departments</option>
+            <option value="HR">HR</option>
+            <option value="IT">IT</option>
+            <option value="ACCOUNTS">ACCOUNTS</option>
+          </select>
+        </div>
+
+        {/* Table */}
+        <div className="glass-card">
+          <div className="p-4 border-b border-border">
+            <h3 className="text-sm font-medium text-foreground">
+              Users List
+            </h3>
+          </div>
+
+          <div className="overflow-x-auto">
+            <table className="data-table">
+              <thead>
+                <tr>
+                  <th>Email</th>
+                  <th>Department</th>
+                  <th>Status</th>
+                  <th>Toggle Block</th>
+                  <th className="text-right">Actions</th>
+                </tr>
+              </thead>
+
+              <tbody>
+                {filteredUsers.map((user) => (
+                  <tr key={user.id}>
+                    <td>{user.email}</td>
+                    <td>{user.department || "—"}</td>
+                    <td>
+                      {user.is_blocked ? (
+                        <span className="text-destructive font-semibold text-xs">
+                          BLOCKED
+                        </span>
+                      ) : (
+                        <span className="text-success font-semibold text-xs">
+                          ACTIVE
+                        </span>
+                      )}
+                    </td>
+                    <td>
+                      {/* Toggle Switch */}
+                      <label className="inline-flex items-center cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={!user.is_blocked}
+                          onChange={() => confirmToggleBlock(user.id)}
+                          className="sr-only peer"
+                        />
+                        <div className="relative w-11 h-6 bg-muted peer-focus:outline-none rounded-full peer peer-checked:bg-success after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:after:translate-x-full"></div>
+                      </label>
+                    </td>
+                    <td className="text-right">
+                      <button
+                        onClick={() => confirmDeleteUser(user.id)}
+                        className="p-2 bg-destructive/10 text-destructive hover:bg-destructive/20 rounded transition-colors inline-block"
+                        title="Delete User"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+
+                {filteredUsers.length === 0 && (
+                  <tr>
+                    <td
+                      colSpan={5}
+                      className="text-center text-muted-foreground py-6"
+                    >
+                      No users found
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </main>
+    </div>
+  );
+}
