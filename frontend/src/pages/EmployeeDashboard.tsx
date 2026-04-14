@@ -273,7 +273,7 @@ const EmployeeDashboard = () => {
             </div>
           ) : activeTab === "history" && history.length === 0 ? (
             <div className="text-center p-10 bg-secondary/50 rounded-lg border border-border">
-              <p className="text-muted-foreground">No access requests found.</p>
+              <p className="text-muted-foreground">No requests found.</p>
             </div>
           ) : activeTab === "files" ? (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -351,37 +351,61 @@ const EmployeeDashboard = () => {
                 <table className="w-full text-sm text-left">
                   <thead className="text-xs text-muted-foreground uppercase bg-secondary/50">
                     <tr>
-                      <th className="px-6 py-4 font-medium">Request ID</th>
-                      <th className="px-6 py-4 font-medium">File Name</th>
-                      <th className="px-6 py-4 font-medium">Department</th>
+                      <th className="px-6 py-4 font-medium">Type</th>
+                      <th className="px-6 py-4 font-medium">Details</th>
+                      <th className="px-6 py-4 font-medium">Your Reason</th>
                       <th className="px-6 py-4 font-medium">Date</th>
                       <th className="px-6 py-4 font-medium">Status</th>
-                      <th className="px-6 py-4 font-medium">Reason</th>
+                      <th className="px-6 py-4 font-medium">Admin Feedback</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-border">
                     {history.map((req) => (
-                      <tr key={req.id} className="hover:bg-secondary/30 transition-colors">
-                        <td className="px-6 py-4 font-mono text-xs text-muted-foreground">#{req.id}</td>
-                        <td className="px-6 py-4 font-medium">{req.File?.filename || "Unknown File"}</td>
-                        <td className="px-6 py-4">{req.File?.department || "N/A"}</td>
-                        <td className="px-6 py-4 text-xs text-muted-foreground">{new Date(req.createdAt).toLocaleString()}</td>
+                      <tr key={`${req.reqType}-${req.id}`} className="hover:bg-secondary/30 transition-colors">
                         <td className="px-6 py-4">
-                          <span 
+                          {req.reqType === "mfa" ? (
+                            <span className="px-2 py-1 rounded text-xs font-semibold bg-primary/10 text-primary border border-primary/20">
+                              🔑 MFA Reset
+                            </span>
+                          ) : (
+                            <span className="px-2 py-1 rounded text-xs font-semibold bg-secondary text-muted-foreground border border-border">
+                              📁 File Access
+                            </span>
+                          )}
+                        </td>
+                        <td className="px-6 py-4 font-medium max-w-[160px] truncate" title={req.reqType === "mfa" ? "MFA Authenticator Reset" : (req.File?.filename || "Unknown File")}>
+                          {req.reqType === "mfa" ? (
+                            <span className="text-muted-foreground italic">Authenticator Reset</span>
+                          ) : (
+                            req.File?.filename || "Unknown File"
+                          )}
+                        </td>
+                        <td className="px-6 py-4 max-w-[180px] truncate text-xs text-muted-foreground" title={req.reason || ""}>
+                          {req.reason || <span className="italic">—</span>}
+                        </td>
+                        <td className="px-6 py-4 text-xs text-muted-foreground whitespace-nowrap">
+                          {new Date(req.createdAt).toLocaleString()}
+                        </td>
+                        <td className="px-6 py-4">
+                          <span
                             className={`px-2 py-1 rounded text-xs font-semibold ${
                               req.status === "rejected" ? "bg-destructive/20 text-destructive" :
-                              req.status === "approved" ? "bg-success/20 text-success" : 
+                              req.status === "approved" ? "bg-success/20 text-success" :
                               "bg-warning/20 text-warning"
                             }`}
                           >
                             {req.status.toUpperCase()}
                           </span>
                         </td>
-                        <td 
-                          className="px-6 py-4 max-w-[200px] truncate text-xs text-muted-foreground"
-                          title={req.status === "rejected" && req.admin_comment ? req.admin_comment : undefined}
+                        <td
+                          className="px-6 py-4 max-w-[200px] truncate text-xs"
+                          title={req.status === "rejected" ? (req.adminMessage || req.admin_comment || "") : undefined}
                         >
-                          {req.status === "rejected" ? req.admin_comment || "No reason provided" : "-"}
+                          {req.status === "rejected" ? (
+                            <span className="text-destructive font-medium">
+                              {req.adminMessage || req.admin_comment || "No reason provided"}
+                            </span>
+                          ) : "—"}
                         </td>
                       </tr>
                     ))}
