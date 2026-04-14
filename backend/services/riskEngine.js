@@ -3,16 +3,17 @@
  *  ZeroTrustGuard — Risk Engine v2
  *  Zero Trust principle: Never trust, always verify. Every action is scored.
  *
- *  6 independent signals → weighted composite score (0–100):
+ *  7 independent signals → weighted composite score (0–100):
  *
  *  Signal                  Weight   What it detects
  *  ──────────────────────  ──────   ──────────────────────────────────────────
- *  Sensitivity mismatch    25%      Resource classification vs user clearance
- *  Temporal anomaly        20%      Gradient deviation from normal work hours
- *  IP anomaly              20%      New/unseen IP vs user's historical IPs
- *  Velocity anomaly        15%      Sudden spike in action rate (last 5 min)
- *  Department mismatch     12%      Cross-department resource access
- *  Recent auth failures     8%      Failed logins / MFA failures in last 30 min
+ *  Sensitivity mismatch    22%      Resource classification vs user clearance
+ *  Temporal anomaly        18%      Gradient deviation from normal work hours
+ *  IP anomaly              18%      New/unseen IP vs user's historical IPs
+ *  Velocity anomaly        14%      Sudden spike in action rate (last 5 min)
+ *  Department mismatch     11%      Cross-department resource access
+ *  Recent auth failures     7%      Failed logins / MFA failures in last 30 min
+ *  Geo anomaly             10%      Login from a new/unusual country
  *
  *  Decision thresholds:
  *    0–29   → ALLOW
@@ -24,18 +25,20 @@
 
 "use strict";
 
-const { Op } = require("sequelize");
+const { Op }      = require("sequelize");
 const ActivityLog = require("../models/ActivityLog");
 const User        = require("../models/User");
+const geoip       = require("geoip-lite"); // [C1] Geolocation anomaly signal
 
 // ─── Weights (must sum to 1.0) ────────────────────────────────────────────────
 const W = {
-  sensitivityMismatch: 0.25,
-  temporalAnomaly:     0.20,
-  ipAnomaly:           0.20,
-  velocityAnomaly:     0.15,
-  departmentMismatch:  0.12,
-  recentFailures:      0.08,
+  sensitivityMismatch: 0.22,
+  temporalAnomaly:     0.18,
+  ipAnomaly:           0.18,
+  velocityAnomaly:     0.14,
+  departmentMismatch:  0.11,
+  recentFailures:      0.07,
+  geoAnomaly:          0.10,  // [C1] new signal
 };
 
 // ─── Role clearance levels ────────────────────────────────────────────────────
@@ -296,6 +299,62 @@ async function scoreRecentFailures(userId) {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// Signal 7 — Geolocation Anomaly [C1]
+//
+// Looks up the country from the request IP using geoip-lite (offline DB,
+// no external API calls). Compares against the user's last 10 login countries.
+// A brand-new country scores high; a familiar country scores zero.
+// Localhost / private IPs are treated as safe (score 0).
+// ─────────────────────────────────────────────────────────────────────────────
+async function scoreGeoAnomaly(userId, ipAddress) {
+  if (!ipAddress) return 0;
+
+  // Private/loopback IPs — always safe
+  if (
+    ipAddress === "127.0.0.1" ||
+    ipAddress === "::1" ||
+    ipAddress.startsWith("192.168.") ||
+    ipAddress.startsWith("10.") ||
+    ipAddress.startsWith("172.")
+  ) return 0;
+
+  const geo = geoip.lookup(ipAddress);
+  if (!geo?.country) return 0; // IP not in database — no penalty
+
+  const currentCountry = geo.country; // ISO 3166-1 alpha-2 (e.g. "IN", "US")
+
+  try {
+    // Get the last 10 distinct countries this user has been seen from
+    const recentLogs = await ActivityLog.findAll({
+      where:      { userId, ipAddress: { [Op.ne]: null } },
+      order:      [["createdAt", "DESC"]],
+      limit:      50,
+      attributes: ["ipAddress"],
+    });
+
+    const knownCountries = new Set(
+      recentLogs
+        .map(l => {
+          const g = geoip.lookup(l.ipAddress);
+          return g?.country || null;
+        })
+        .filter(Boolean)
+    );
+
+    // Not enough history — don't penalise but note it
+    if (knownCountries.size === 0) return 0;
+
+    if (knownCountries.has(currentCountry)) return 0;  // Known country — safe
+
+    // Brand new country — high anomaly
+    console.log(`[RISK] Geo anomaly: user ${userId} logging in from new country ${currentCountry} (known: ${[...knownCountries].join(", ")})`);
+    return 80;
+  } catch {
+    return 0;
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // Core scoring combiner
 // ─────────────────────────────────────────────────────────────────────────────
 function combineScores(signals) {
@@ -305,7 +364,8 @@ function combineScores(signals) {
     signals.ipAnomaly           * W.ipAnomaly           +
     signals.velocityAnomaly     * W.velocityAnomaly     +
     signals.departmentMismatch  * W.departmentMismatch  +
-    signals.recentFailures      * W.recentFailures;
+    signals.recentFailures      * W.recentFailures      +
+    signals.geoAnomaly          * W.geoAnomaly;          // [C1]
 
   return Math.min(100, Math.round(raw));
 }
@@ -338,10 +398,11 @@ async function computeRisk({
   ipAddress        = null,
 }) {
   // Run all async signals in parallel for efficiency
-  const [ipScore, velocityScore, failureScore] = await Promise.all([
+  const [ipScore, velocityScore, failureScore, geoScore] = await Promise.all([
     scoreIpAnomaly(userId, ipAddress),
     scoreVelocityAnomaly(userId),
     scoreRecentFailures(userId),
+    scoreGeoAnomaly(userId, ipAddress),   // [C1] new signal
   ]);
 
   const signals = {
@@ -351,6 +412,7 @@ async function computeRisk({
     velocityAnomaly:     velocityScore,
     departmentMismatch:  scoreDepartmentMismatch(userDepartment, fileDepartment, sensitivityLevel),
     recentFailures:      failureScore,
+    geoAnomaly:          geoScore,         // [C1]
   };
 
   const riskScore = combineScores(signals);

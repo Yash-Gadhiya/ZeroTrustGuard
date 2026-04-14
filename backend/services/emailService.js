@@ -164,10 +164,26 @@ async function sendAccountSuspended(userEmail) {
   );
 }
 
+/**
+ * Temporary access AUTO-EXPIRED by the cron worker
+ */
+async function sendAccessExpired(userEmail, fileId) {
+  await sendEmail(
+    userEmail,
+    "⏰ Temporary File Access Expired — ZeroTrustGuard",
+    wrap("Your Temporary Access Has Expired", `
+      <p>Your temporary access to <strong>File #${fileId}</strong> has <strong style="color:#fbbf24">automatically expired</strong>.</p>
+      <p>If you still need access, submit a new access request from your dashboard.</p>
+    `)
+  );
+}
+
+
 module.exports = {
   sendAccessApproved,
   sendAccessRejected,
   sendMfaResetApproved,
   sendMfaResetRejected,
   sendAccountSuspended,
+  sendAccessExpired,
 };

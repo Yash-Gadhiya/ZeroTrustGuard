@@ -18,15 +18,19 @@ async function verifyToken(req, res, next) {
   try {
     const authHeader = req.headers.authorization;
 
-    if (!authHeader) {
+    // SSE fallback: EventSource cannot set custom headers, so accept ?token= query param
+    // This is intentional and safe — token is still validated fully below
+    const queryToken = req.query.token;
+
+    if (!authHeader && !queryToken) {
       return res.status(403).json({ message: "Access denied. No token provided." });
     }
 
-    if (!authHeader.startsWith("Bearer ")) {
+    if (authHeader && !authHeader.startsWith("Bearer ")) {
       return res.status(401).json({ message: "Invalid authorization format" });
     }
 
-    const token   = authHeader.split(" ")[1];
+    const token   = queryToken || authHeader.split(" ")[1];
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
 
     // [H2] Check token revocation blacklist (logout / admin block)

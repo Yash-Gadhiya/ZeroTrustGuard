@@ -1,9 +1,7 @@
-/**
- * alertService.js
- * Centralised SOC Alert creation.
- * Matches the Alert model schema: { userId, riskScore, reason, status }
- */
+"use strict";
+
 const Alert = require("../models/Alert");
+const { emitSOCAlert } = require("./sseService");
 
 /**
  * @param {object} opts
@@ -14,7 +12,12 @@ const Alert = require("../models/Alert");
  */
 async function createAlert({ userId, riskScore = 0, reason, status = "OPEN" }) {
   try {
-    return await Alert.create({ userId, riskScore, reason, status });
+    const alert = await Alert.create({ userId, riskScore, reason, status });
+
+    // [B1] Push to all connected SOC admin clients via SSE — zero latency
+    emitSOCAlert({ id: alert.id, userId, riskScore, reason, status, createdAt: alert.createdAt });
+
+    return alert;
   } catch (err) {
     // Alert creation must never crash a request
     console.error("[alertService] Failed to create alert:", err.message);

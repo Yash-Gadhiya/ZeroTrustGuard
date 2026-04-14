@@ -1,7 +1,9 @@
-const express   = require("express");
+const express    = require("express");
 const cors       = require("cors");
 const helmet     = require("helmet");
 const rateLimit  = require("express-rate-limit");
+const compression = require("compression");
+const morgan     = require("morgan");
 require("dotenv").config();
 
 const { connectDB, sequelize } = require("./config/database");
@@ -57,8 +59,21 @@ const webSecurityRoutes = require("./routes/webSecurityRoutes");
 const wafMiddleware  = require("./modules/webSecurity/wafMiddleware");
 // [C3] Risk Engine Middleware — applied to every authenticated route group
 const riskMiddleware = require("./middleware/riskMiddleware");
+// [A4] Centralized error handler — registered LAST after all routes
+const errorHandler   = require("./middleware/errorHandler");
+// [B1] SSE service for real-time SOC alerts
+const { addClient }  = require("./services/sseService");
+const verifyToken    = require("./middleware/authMiddleware");
 
 const app = express();
+
+// ── [P8] Gzip compression — reduces response sizes ~70% ──────────────────────
+app.use(compression());
+
+// ── [A6] HTTP request logging (dev only) ─────────────────────────────────────
+if (process.env.NODE_ENV !== "production") {
+  app.use(morgan("dev"));
+}
 
 // ── [H5] Helmet — sets 12 security headers in one line ───────────────────────
 app.use(helmet());
@@ -110,15 +125,43 @@ app.use("/api/mfa",            riskMiddleware, mfaRoutes);
 app.use("/api/dashboard",      riskMiddleware, dashboardRoutes);
 app.use("/api/websecurity",    riskMiddleware, webSecurityRoutes);
 
+// [B1] SSE stream endpoint — real-time SOC alerts (admin only, no riskMiddleware to avoid scoring heartbeats)
+app.get("/api/soc/stream", verifyToken, (req, res) => {
+  if (req.user.role !== "admin" && req.user.role !== "super_admin") {
+    return res.status(403).json({ message: "Admins only" });
+  }
+  res.setHeader("Content-Type",  "text/event-stream");
+  res.setHeader("Cache-Control", "no-cache");
+  res.setHeader("Connection",    "keep-alive");
+  res.setHeader("X-Accel-Buffering", "no"); // Disable Nginx / Render buffering
+  res.flushHeaders();
+
+  // Send a heartbeat every 25s to keep the connection alive through proxies
+  const heartbeat = setInterval(() => {
+    try { res.write(":heartbeat\n\n"); } catch { clearInterval(heartbeat); }
+  }, 25000);
+
+  addClient(req.user.id, res);
+  res.on("close", () => clearInterval(heartbeat));
+});
+
 // Health check route
 app.get("/", (req, res) => {
   res.send("ZeroTrustGuard Backend Running...");
 });
 
+// [A4] Centralized error handler — MUST be last middleware
+app.use(errorHandler);
+
 const PORT = process.env.PORT || 5000;
 
 async function startServer() {
   try {
+    // [H8] JWT secret guard — fail fast if secret is weak or missing
+    if (!process.env.JWT_SECRET || process.env.JWT_SECRET.length < 32) {
+      console.error("[FATAL] JWT_SECRET must be at least 32 characters. Server stopped.");
+      process.exit(1);
+    }
     await connectDB();
 
     // [C4] Changed from { alter: true } — which silently mutates DB schema on every restart —
@@ -130,6 +173,9 @@ async function startServer() {
     app.listen(PORT, () => {
       console.log(`Server running on port ${PORT}`);
     });
+
+    // [A1] Start the Temporary Access Expiry cron worker AFTER DB is ready
+    require("./workers/accessExpiry.worker");
 
   } catch (error) {
     console.error("Startup error:", error);

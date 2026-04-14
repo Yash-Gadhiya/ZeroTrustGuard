@@ -1,5 +1,6 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { useNavigate } from "react-router-dom";
+import { useToast } from "@/hooks/use-toast";
 import { AppSidebar } from "@/components/AppSidebar";
 import UserProfileCard from "@/components/UserProfileCard"; // Added Import
 import { PinModal } from "@/components/PinModal";
@@ -104,6 +105,7 @@ const SOCDashboard = () => {
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<"alerts" | "logs" | "files">("alerts");
   const navigate = useNavigate();
+  const { toast } = useToast();
 
   // Filters
   const [searchEmail, setSearchEmail] = useState("");
@@ -179,6 +181,34 @@ const SOCDashboard = () => {
     }, 300);
     return () => clearTimeout(timeout);
   }, [fetchData]);
+
+  // [B1] SSE — real-time alerts without page refresh
+  useEffect(() => {
+    const token = localStorage.getItem("token") || sessionStorage.getItem("token") || "";
+    const backendUrl = (import.meta.env.VITE_API_URL || "http://localhost:5000").replace(/\/$/, "");
+    const es = new EventSource(`${backendUrl}/api/soc/stream?token=${token}`);
+
+    es.addEventListener("new-alert", (e) => {
+      try {
+        const alert = JSON.parse(e.data);
+        // Prepend new alert to state — no full reload needed
+        setAlerts(prev => [alert, ...prev]);
+        // Show a toast so the SOC analyst notices even if they're on another tab
+        toast({
+          title: `🚨 New SOC Alert — Risk ${alert.riskScore}/100`,
+          description: alert.reason,
+          variant: alert.riskScore >= 65 ? "destructive" : "default",
+          duration: 8000,
+        });
+      } catch { /* ignore malformed events */ }
+    });
+
+    es.onerror = () => {
+      // SSE will auto-reconnect; nothing to do here
+    };
+
+    return () => es.close();
+  }, []);
 
   const confirmDeleteFile = async () => {
     if (!selectedFile) return;
