@@ -1,8 +1,10 @@
 const express = require("express");
 const router = express.Router();
 
-const authMiddleware = require("../middleware/authMiddleware"); // Changed verifyToken to authMiddleware
+const authMiddleware = require("../middleware/authMiddleware");
 const upload = require("../middleware/uploadMiddleware");
+const { validate } = require("../middleware/validate");
+const { uploadFileSchema, accessRequestSchema } = require("../middleware/schemas");
 
 const fileController = require("../controllers/fileController");
 
@@ -10,8 +12,9 @@ const fileController = require("../controllers/fileController");
 // Desc: Upload a new file
 router.post(
   "/upload",
-  authMiddleware, // Changed verifyToken to authMiddleware
-  upload.single("file"),
+  authMiddleware,
+  upload.single("file"),      // multer first — parses multipart
+  validate(uploadFileSchema), // then validate the text fields
   fileController.uploadFile
 );
 
@@ -47,6 +50,7 @@ router.get(
 router.post(
   "/request-access",
   authMiddleware,
+  validate(accessRequestSchema),
   fileController.requestAccess
 );
 

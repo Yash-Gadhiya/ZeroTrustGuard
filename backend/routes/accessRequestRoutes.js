@@ -2,6 +2,8 @@ const express = require("express");
 const router = express.Router();
 
 const verifyToken = require("../middleware/authMiddleware");
+const { validate } = require("../middleware/validate");
+const { approveRequestSchema, rejectRequestSchema } = require("../middleware/schemas");
 const accessRequestController = require("../controllers/accessRequestController");
 
 // Get pending requests (based on hierarchy)
@@ -22,6 +24,7 @@ router.get(
 router.post(
   "/:id/approve",
   verifyToken,
+  validate(approveRequestSchema),
   accessRequestController.approveRequest
 );
 
@@ -29,6 +32,7 @@ router.post(
 router.post(
   "/:id/reject",
   verifyToken,
+  validate(rejectRequestSchema),
   accessRequestController.rejectRequest
 );
 

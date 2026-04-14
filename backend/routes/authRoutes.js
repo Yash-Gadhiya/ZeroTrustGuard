@@ -2,9 +2,11 @@ const express = require("express");
 const router = express.Router();
 const authController = require("../controllers/authController");
 const verifyToken = require("../middleware/authMiddleware");
+const { validate } = require("../middleware/validate");
+const { registerSchema, loginSchema } = require("../middleware/schemas");
 
-router.post("/register", authController.register);
-router.post("/login", authController.login);
+router.post("/register", validate(registerSchema), authController.register);
+router.post("/login",    validate(loginSchema),    authController.login);
 
 // Profile
 router.get("/profile", verifyToken, authController.getProfile);

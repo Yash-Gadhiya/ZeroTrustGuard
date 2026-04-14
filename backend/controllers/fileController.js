@@ -20,6 +20,24 @@ exports.uploadFile = async (req, res) => {
       });
     }
 
+    // [A2] Magic byte file validation (Dynamic import since file-type is ESM)
+    const { fileTypeFromFile } = await import("file-type");
+    const meta = await fileTypeFromFile(req.file.path);
+
+    // file-type returns undefined for text files. 
+    // Allow if multer detected it as text AND there are no hidden binary headers.
+    const isText = req.file.mimetype.startsWith("text/") && !meta;
+    
+    const allowedMimes = ["application/pdf", "image/jpeg", "image/png", "image/gif", "image/webp"];
+    
+    if (!isText && (!meta || !allowedMimes.includes(meta.mime))) {
+      // Revert the upload — delete the spoofed file from disk
+      fs.unlinkSync(req.file.path);
+      return res.status(400).json({ 
+        message: "Invalid file type. Only PDF, images, and text files are allowed." 
+      });
+    }
+
     const userId = req.user ? req.user.id : null;
     const role = req.user ? req.user.role : null;
 
