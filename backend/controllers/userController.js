@@ -1,7 +1,7 @@
-const User = require("../models/User");
+const User        = require("../models/User");
 const ActivityLog = require("../models/ActivityLog");
-const Alert = require("../models/Alert");
-const bcrypt = require("bcrypt");
+const Alert       = require("../models/Alert");
+const speakeasy   = require("speakeasy");  // [H1] TOTP verification
 
 // ... we will append delete user
 exports.deleteUser = async (req, res) => {
@@ -21,10 +21,16 @@ exports.deleteUser = async (req, res) => {
 
     const adminUser = await User.findByPk(req.user.id);
     if (adminUser && adminUser.mfaEnabled) {
-      const mfaPin = req.headers["x-mfa-pin"];
-      if (!mfaPin) return res.status(403).json({ mfaRequired: true, message: "MFA PIN required for admin actions." });
-      const isValid = await bcrypt.compare(mfaPin, adminUser.mfaPin);
-      if (!isValid) return res.status(403).json({ mfaRequired: true, message: "Invalid MFA PIN." });
+      const mfaToken = req.headers["x-mfa-pin"];
+      if (!mfaToken) return res.status(403).json({ mfaRequired: true, message: "Authenticator code required for admin actions." });
+      // [H1] Verify TOTP
+      const isValid = adminUser.mfaSecret && speakeasy.totp.verify({
+        secret:   adminUser.mfaSecret,
+        encoding: "base32",
+        token:    mfaToken,
+        window:   1
+      });
+      if (!isValid) return res.status(403).json({ mfaRequired: true, message: "Invalid or expired authenticator code." });
     }
 
     // Prevent deleting admin

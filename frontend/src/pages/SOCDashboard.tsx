@@ -333,7 +333,7 @@ const SOCDashboard = () => {
           onSubmit={processDownload}
           error={downloadPinError}
           title="Download Secured File"
-          description={`Enter PIN to download ${fileToDownload?.filename}`}
+          description={`Enter your 6-digit authenticator code to download ${fileToDownload?.filename}`}
         />
 
         {customRangeModalOpen && (

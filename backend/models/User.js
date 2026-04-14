@@ -68,8 +68,9 @@ const User = sequelize.define("User", {
     defaultValue: false
   },
 
-  // MFA
-  mfaPin: {
+  // MFA — TOTP (Google Authenticator / Authy)
+  // [H1] Replaced mfaPin (4-digit bcrypt) with mfaSecret (TOTP base32 secret)
+  mfaSecret: {
     type: DataTypes.STRING,
     allowNull: true
   },

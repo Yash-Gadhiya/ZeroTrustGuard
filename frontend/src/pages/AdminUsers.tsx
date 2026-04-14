@@ -13,6 +13,18 @@ interface User {
   block_reason: string | null;
 }
 
+interface MfaRequest {
+  id: number;
+  reason: string;
+  createdAt: string;
+  User: {
+    id: number;
+    email: string;
+    name: string;
+    department: string | null;
+  };
+}
+
 export default function AdminUsers() {
   const [users, setUsers] = useState<User[]>([]);
   const [selectedDept, setSelectedDept] = useState("all");
@@ -32,6 +44,35 @@ export default function AdminUsers() {
       setUsers(filtered);
     } catch (err) {
       console.error("Failed to fetch users");
+    }
+  };
+
+  const [mfaRequests, setMfaRequests] = useState<MfaRequest[]>([]);
+
+  const fetchMfaRequests = async () => {
+    try {
+      const res = await api.get("/api/mfa/requests");
+      setMfaRequests(res.data);
+    } catch (err) {
+      console.error("Failed to fetch MFA requests");
+    }
+  };
+
+  const handleMfaResponse = async (id: number, action: 'approve' | 'reject') => {
+    let reason = "";
+    if (action === "reject") {
+      const input = window.prompt("Please provide a reason for rejecting this MFA reset request:");
+      if (input === null || !input.trim()) return; // User cancelled or empty
+      reason = input.trim();
+    } else {
+      if (!window.confirm("Are you sure you want to approve this MFA reset request?")) return;
+    }
+
+    try {
+      await api.post(`/api/mfa/${action}/${id}`, { reason });
+      fetchMfaRequests();
+    } catch (err: any) {
+      alert(err.response?.data?.message || `Failed to ${action} request`);
     }
   };
 
@@ -75,6 +116,7 @@ export default function AdminUsers() {
 
   useEffect(() => {
     fetchUsers();
+    fetchMfaRequests();
   }, []);
 
   const filteredUsers =
@@ -91,7 +133,7 @@ export default function AdminUsers() {
         onSubmit={processAdminAction}
         error={adminPinError}
         title="Admin Action Required"
-        description="Enter your Admin PIN to proceed."
+        description="Enter your 6-digit authenticator code to proceed."
       />
 
       <main className="flex-1 p-8 overflow-auto">
@@ -113,11 +155,71 @@ export default function AdminUsers() {
           </select>
         </div>
 
-        {/* Table */}
+        {/* MFA Reset Requests Table */}
+        {mfaRequests.length > 0 && (
+          <div className="glass-card mb-8">
+            <div className="p-4 border-b border-border bg-primary/5 flex justify-between items-center">
+              <h3 className="text-sm font-semibold text-primary">
+                Pending MFA Reset Requests
+              </h3>
+              <span className="bg-primary text-primary-foreground text-xs font-bold px-2 py-1 rounded-full">
+                {mfaRequests.length} Pending
+              </span>
+            </div>
+            <div className="overflow-x-auto">
+              <table className="data-table">
+                <thead>
+                  <tr>
+                    <th>User</th>
+                    <th>Department</th>
+                    <th>Reason</th>
+                    <th>Date</th>
+                    <th className="text-right">Action</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {mfaRequests.map((req) => (
+                    <tr key={req.id}>
+                      <td>
+                        <div>
+                          <p className="font-medium text-foreground">{req.User.name}</p>
+                          <p className="text-xs text-muted-foreground">{req.User.email}</p>
+                        </div>
+                      </td>
+                      <td>{req.User.department || "—"}</td>
+                      <td className="max-w-xs truncate" title={req.reason || "No reason provided"}>
+                        {req.reason || <span className="text-muted-foreground italic">No reason provided</span>}
+                      </td>
+                      <td className="text-xs text-muted-foreground">
+                        {new Date(req.createdAt).toLocaleString()}
+                      </td>
+                      <td className="text-right space-x-2">
+                        <button
+                          onClick={() => handleMfaResponse(req.id, "reject")}
+                          className="px-3 py-1 bg-secondary text-foreground text-xs rounded hover:bg-destructive/10 hover:text-destructive transition-colors border border-border"
+                        >
+                          Reject
+                        </button>
+                        <button
+                          onClick={() => handleMfaResponse(req.id, "approve")}
+                          className="px-3 py-1 bg-primary text-primary-foreground text-xs rounded shadow-md hover:bg-primary/90 transition-colors"
+                        >
+                          Approve
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
+
+        {/* Existing User Table */}
         <div className="glass-card">
-          <div className="p-4 border-b border-border">
+          <div className="p-4 border-b border-border flex justify-between items-center">
             <h3 className="text-sm font-medium text-foreground">
-              Users List
+              Directory Users
             </h3>
           </div>
 

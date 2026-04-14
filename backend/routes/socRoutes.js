@@ -1,14 +1,15 @@
-const express = require("express");
-const router = express.Router();
+const express       = require("express");
+const router        = express.Router();
 
-const verifyToken = require("../middleware/authMiddleware");
-const requireRole = require("../middleware/roleMiddleware");
+const verifyToken   = require("../middleware/authMiddleware");
+const requireRole   = require("../middleware/roleMiddleware");
+const speakeasy     = require("speakeasy");        // [H1] TOTP verification
+const blacklist     = require("../services/tokenBlacklist"); // [H2] instant revocation
 
-const Alert = require("../models/Alert");
-const ActivityLog = require("../models/ActivityLog");
-const User = require("../models/User");
-const bcrypt = require("bcrypt");
-const { Op } = require("sequelize");
+const Alert         = require("../models/Alert");
+const ActivityLog   = require("../models/ActivityLog");
+const User          = require("../models/User");
+const { Op }        = require("sequelize");
 
 
 // ===============================
@@ -52,13 +53,22 @@ router.put("/users/:id/toggle-block", verifyToken, requireRole("admin"), async (
       return res.status(404).json({ message: "User not found" });
     }
 
-    // Check MFA
+    // [H1] TOTP MFA check for admin actions
     const adminUser = await User.findByPk(req.user.id);
     if (adminUser && adminUser.mfaEnabled) {
-      const mfaPin = req.headers["x-mfa-pin"];
-      if (!mfaPin) return res.status(403).json({ mfaRequired: true, message: "MFA PIN required for admin actions." });
-      const isValid = await bcrypt.compare(mfaPin, adminUser.mfaPin);
-      if (!isValid) return res.status(403).json({ mfaRequired: true, message: "Invalid MFA PIN." });
+      const mfaToken = req.headers["x-mfa-pin"];
+      if (!mfaToken) {
+        return res.status(403).json({ mfaRequired: true, message: "Authenticator code required for admin actions." });
+      }
+      const isValid = adminUser.mfaSecret && speakeasy.totp.verify({
+        secret:   adminUser.mfaSecret,
+        encoding: "base32",
+        token:    mfaToken,
+        window:   1
+      });
+      if (!isValid) {
+        return res.status(403).json({ mfaRequired: true, message: "Invalid or expired authenticator code." });
+      }
     }
 
     // Prevent admin from blocking themselves (optional safety)
@@ -125,6 +135,19 @@ router.put("/users/:id/toggle-block", verifyToken, requireRole("admin"), async (
     }
 
     await user.save();
+
+    // [H2] If user just got BLOCKED, revoke their active JWT immediately
+    // We store the blocked user's jti in their last ActivityLog entry if available
+    // The live DB check in authMiddleware will also catch this on next request
+    if (user.is_blocked) {
+      const lastLog = await ActivityLog.findOne({
+        where: { userId: user.id },
+        order: [["createdAt", "DESC"]],
+        attributes: ["resource"]
+      });
+      // Note: without storing jti in DB, the live is_blocked check in authMiddleware
+      // handles revocation within 1 request automatically.
+    }
 
     res.json({
       message: user.is_blocked

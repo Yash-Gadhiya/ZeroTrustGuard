@@ -147,6 +147,9 @@ exports.rejectRequest = async (req, res) => {
   try {
     const requestId = req.params.id;
     const { reason } = req.body;
+    if (!reason || !reason.trim()) {
+      return res.status(400).json({ message: "Rejection reason is required." });
+    }
     const approverId = req.user.id;
 
     const request = await AccessRequest.findByPk(requestId);
@@ -160,9 +163,7 @@ exports.rejectRequest = async (req, res) => {
 
     request.status = "rejected";
     request.approvedBy = approverId;
-    if (reason) {
-      request.admin_comment = reason;
-    }
+    request.admin_comment = reason.trim();
     await request.save();
 
     const targetUser = await User.findByPk(request.userId);

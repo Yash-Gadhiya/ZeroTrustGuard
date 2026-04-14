@@ -65,8 +65,18 @@ const EmployeeDashboard = () => {
   const fetchHistory = async () => {
     setLoading(true);
     try {
-      const res = await api.get("/api/access-requests/my-requests");
-      setHistory(res.data.requests || []);
+      const [fileRes, mfaRes] = await Promise.all([
+        api.get("/api/access-requests/my-requests"),
+        api.get("/api/mfa/my-requests")
+      ]);
+
+      const accessReqs = (fileRes.data.requests || []).map((r: any) => ({ ...r, reqType: 'access' }));
+      const mfaReqs = (mfaRes.data || []).map((r: any) => ({ ...r, reqType: 'mfa' }));
+
+      const combined = [...accessReqs, ...mfaReqs].sort(
+        (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+      );
+      setHistory(combined);
     } catch (err: any) {
       setError(err.response?.data?.message || "Network error. Could not fetch history.");
     } finally {
@@ -201,7 +211,7 @@ const EmployeeDashboard = () => {
         onSubmit={processAction}
         error={downloadPinError}
         title={fileToProcess?.action === 'view' ? "View Secured File" : "Download Secured File"}
-        description={`Enter PIN to ${fileToProcess?.action} ${fileToProcess?.originalName || fileToProcess?.filename}`}
+        description={`Enter your 6-digit authenticator code to ${fileToProcess?.action} ${fileToProcess?.originalName || fileToProcess?.filename}`}
       />
       
       <SecureFileViewer
@@ -243,7 +253,7 @@ const EmployeeDashboard = () => {
               }`}
               onClick={() => setActiveTab("history")}
             >
-              Request History
+              My Requests
             </button>
           </div>
 

@@ -50,6 +50,7 @@ const ApprovalsDashboard = () => {
 
   // Reject Modal State
   const [rejectModalOpen, setRejectModalOpen] = useState(false);
+  const [rejectType, setRejectType] = useState<"access" | "mfa">("access");
   const [rejectRequestId, setRejectRequestId] = useState<number | null>(null);
   const [rejectReason, setRejectReason] = useState("");
 
@@ -115,8 +116,9 @@ const ApprovalsDashboard = () => {
     } setProcessingId(null);
   };
 
-  const openRejectModal = (id: number) => {
+  const openRejectModal = (id: number, type: "access" | "mfa" = "access") => {
     setRejectRequestId(id);
+    setRejectType(type);
     setRejectReason("");
     setRejectModalOpen(true);
   };
@@ -125,8 +127,13 @@ const ApprovalsDashboard = () => {
     if (!rejectRequestId || !rejectReason.trim()) return;
     setProcessingId(rejectRequestId);
     try {
-      await api.post(`/api/access-requests/${rejectRequestId}/reject`, { reason: rejectReason });
-      setRequests(requests.filter(req => req.id !== rejectRequestId));
+      if (rejectType === "access") {
+        await api.post(`/api/access-requests/${rejectRequestId}/reject`, { reason: rejectReason });
+        setRequests(requests.filter(req => req.id !== rejectRequestId));
+      } else {
+        await api.post(`/api/mfa/reject/${rejectRequestId}`, { reason: rejectReason });
+        setMfaRequests(mfaRequests.filter(req => req.id !== rejectRequestId));
+      }
       setRejectModalOpen(false);
     } catch (err: any) {
       alert(err.response?.data?.message || "Network error or failure to reject.");
@@ -145,15 +152,7 @@ const ApprovalsDashboard = () => {
     } setProcessingId(null);
   };
 
-  const handleMfaReject = async (id: number) => {
-    setProcessingId(id);
-    try {
-      await api.post(`/api/mfa/reject/${id}`, {});
-      setMfaRequests(mfaRequests.filter(req => req.id !== id));
-    } catch (err: any) {
-      alert(err.response?.data?.message || "Failure to reject MFA reset.");
-    } setProcessingId(null);
-  };
+  // Left handleMfaApprove, removed handleMfaReject directly since it goes through modal
 
   const handleDurationChange = (id: number, duration: string) => {
     setApproveDuration({ ...approveDuration, [id]: duration });
@@ -171,10 +170,10 @@ const ApprovalsDashboard = () => {
         <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/80 backdrop-blur-sm">
           <div className="bg-card w-full max-w-md rounded-lg shadow-lg border border-border flex flex-col relative p-6">
             <h2 className="text-xl font-bold mb-4 flex items-center gap-2">
-              <ShieldAlert className="w-5 h-5 text-destructive" /> Reject Request
+              <ShieldAlert className="w-5 h-5 text-destructive" /> Reject {rejectType === "access" ? "Access" : "MFA Reset"} Request
             </h2>
             <p className="text-sm text-muted-foreground mb-4">
-              Please provide a reason for rejecting this access request.
+              Please provide a reason for rejecting this {rejectType === "access" ? "access" : "MFA reset"} request.
             </p>
             <textarea
               value={rejectReason}
@@ -336,7 +335,7 @@ const ApprovalsDashboard = () => {
                         Approve
                       </button>
                       <button
-                        onClick={() => openRejectModal(req.id)}
+                        onClick={() => openRejectModal(req.id, "access")}
                         disabled={processingId === req.id}
                         className="flex-1 py-2 bg-destructive/10 text-destructive border border-destructive/20 hover:bg-destructive/20 rounded-md transition text-xs font-semibold flex items-center justify-center gap-1 disabled:opacity-50"
                       >
@@ -382,7 +381,7 @@ const ApprovalsDashboard = () => {
                         Approve
                       </button>
                       <button
-                        onClick={() => handleMfaReject(req.id)}
+                        onClick={() => openRejectModal(req.id, "mfa")}
                         disabled={processingId === req.id}
                         className="flex-1 py-2 bg-destructive/10 text-destructive border border-destructive/20 hover:bg-destructive/20 rounded-md transition text-xs font-semibold flex items-center justify-center gap-1 disabled:opacity-50"
                       >

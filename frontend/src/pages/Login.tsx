@@ -27,6 +27,12 @@ const Login = () => {
     try {
       const res = await authApi.login(email, password);
 
+      if (res.data.mfaSetupRequired) {
+        localStorage.setItem("ztg_temp_token", res.data.setupToken);
+        navigate("/mfa-setup");
+        return;
+      }
+
       if (res.data.mfaRequired) {
         setTempToken(res.data.tempToken);
         setShowMfaModal(true);
@@ -45,14 +51,32 @@ const Login = () => {
     setMfaLoading(true);
     setMfaError("");
     try {
-      // Need a custom axios call with the temp token
-      const res = await api.post("/api/mfa/verify-pin", { pin }, {
+      // [H1] Updated endpoint from verify-pin (4-digit) to verify (6-digit TOTP)
+      const res = await api.post("/api/mfa/verify", { token: pin }, {
         headers: { Authorization: `Bearer ${tempToken}` }
       });
       setShowMfaModal(false);
       completeLogin(res.data.token, res.data.role);
     } catch (err: any) {
       setMfaError(err.response?.data?.message || "Invalid PIN");
+    } finally {
+      setMfaLoading(false);
+    }
+  };
+
+  const handleResetRequest = async (message: string) => {
+    setMfaLoading(true);
+    setMfaError("");
+    try {
+      const res = await api.post("/api/mfa/request-change", { reason: message }, {
+        headers: { Authorization: `Bearer ${tempToken}` }
+      });
+      // Close modal and show success logic on main page if needed, or alert
+      alert(res.data.message || "Reset request submitted successfully. Please check your Dashboard's 'My Requests' tab if accessible, or contact the IT department directly to follow up on this request.");
+      setShowMfaModal(false);
+      setTempToken("");
+    } catch (err: any) {
+      setMfaError(err.response?.data?.message || "Failed to submit reset request.");
     } finally {
       setMfaLoading(false);
     }
@@ -78,7 +102,8 @@ const Login = () => {
         loading={mfaLoading}
         error={mfaError}
         title="MFA Verification"
-        description="Enter your 4-digit security PIN to complete login."
+        description="Enter the 6-digit code from your authenticator app."
+        onRequestReset={handleResetRequest}
       />
       <div className="w-full max-w-md">
         {/* Logo */}

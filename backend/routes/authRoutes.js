@@ -6,7 +6,10 @@ const verifyToken = require("../middleware/authMiddleware");
 router.post("/register", authController.register);
 router.post("/login", authController.login);
 
-// ✅ Profile route
+// Profile
 router.get("/profile", verifyToken, authController.getProfile);
 
-module.exports = router;
+// [H2] Logout — adds token jti to blacklist for immediate revocation
+router.post("/logout", verifyToken, authController.logout);
+
+module.exports = router;

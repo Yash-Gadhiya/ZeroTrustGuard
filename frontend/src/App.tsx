@@ -134,11 +134,7 @@ const App = () => (
           {/* MFA Setup Page */}
           <Route
             path="/mfa-setup"
-            element={
-              <ProtectedRoute allowedRoles={["admin", "super_admin", "senior", "staff", "intern"]}>
-                <MFASetup />
-              </ProtectedRoute>
-            }
+            element={<MFASetup />}
           />
 
           {/* Fallback */}

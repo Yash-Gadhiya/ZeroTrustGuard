@@ -1,12 +1,12 @@
-const File = require("../models/File");
-const User = require("../models/User");
+const File         = require("../models/File");
+const User         = require("../models/User");
 const TemporaryAccess = require("../models/TemporaryAccess");
-const ActivityLog = require("../models/ActivityLog");
+const ActivityLog  = require("../models/ActivityLog");
 const AccessRequest = require("../models/AccessRequest");
-const { Op } = require("sequelize");
-const path = require("path");
-const fs = require("fs");
-// [C3] Risk Engine — wired to compute dynamic risk scores for file actions
+const { Op }       = require("sequelize");
+const path         = require("path");
+const fs           = require("fs");
+const speakeasy    = require("speakeasy");   // [H1] TOTP verification
 const { computeRisk } = require("../services/riskEngine");
 
 // Upload File
@@ -305,13 +305,19 @@ exports.downloadFile = async (req, res) => {
     }
 
     if (user.mfaEnabled) {
-      if (!mfaPin) {
-        return res.status(403).json({ mfaRequired: true, message: "MFA PIN required for download." });
+      const mfaToken = req.headers["x-mfa-pin"]; // header name kept for frontend compat; value is now a 6-digit TOTP token
+      if (!mfaToken) {
+        return res.status(403).json({ mfaRequired: true, message: "Authenticator code required for download." });
       }
-      const bcrypt = require("bcrypt");
-      const isPinValid = await bcrypt.compare(mfaPin, user.mfaPin);
-      if (!isPinValid) {
-        return res.status(403).json({ mfaRequired: true, message: "Invalid MFA PIN." });
+      // [H1] Verify against TOTP secret (replaces bcrypt PIN check)
+      const isValid = user.mfaSecret && speakeasy.totp.verify({
+        secret:   user.mfaSecret,
+        encoding: "base32",
+        token:    mfaToken,
+        window:   1
+      });
+      if (!isValid) {
+        return res.status(403).json({ mfaRequired: true, message: "Invalid or expired authenticator code." });
       }
     }
 
@@ -452,10 +458,16 @@ exports.viewFile = async (req, res) => {
 
     // MFA Check
     if (user.mfaEnabled) {
-      if (!mfaPin) return res.status(403).json({ mfaRequired: true, message: "MFA PIN required." });
-      const bcrypt = require("bcrypt");
-      const isPinValid = await bcrypt.compare(mfaPin, user.mfaPin);
-      if (!isPinValid) return res.status(403).json({ mfaRequired: true, message: "Invalid MFA PIN." });
+      const mfaToken = req.headers["x-mfa-pin"]; // header name kept for frontend compat; value is now 6-digit TOTP
+      if (!mfaToken) return res.status(403).json({ mfaRequired: true, message: "Authenticator code required." });
+      // [H1] Verify TOTP
+      const isValid = user.mfaSecret && speakeasy.totp.verify({
+        secret:   user.mfaSecret,
+        encoding: "base32",
+        token:    mfaToken,
+        window:   1
+      });
+      if (!isValid) return res.status(403).json({ mfaRequired: true, message: "Invalid or expired authenticator code." });
     }
 
     // Access Control Logic
