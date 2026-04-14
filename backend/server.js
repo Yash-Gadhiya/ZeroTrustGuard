@@ -1,5 +1,7 @@
-const express = require("express");
-const cors = require("cors");
+const express   = require("express");
+const cors       = require("cors");
+const helmet     = require("helmet");
+const rateLimit  = require("express-rate-limit");
 require("dotenv").config();
 
 const { connectDB, sequelize } = require("./config/database");
@@ -56,17 +58,45 @@ const wafMiddleware = require("./modules/webSecurity/wafMiddleware");
 
 const app = express();
 
-// Core Middlewares
-app.use(cors());
+// ── [H5] Helmet — sets 12 security headers in one line ───────────────────────
+app.use(helmet());
+
+// ── [H3] CORS — restrict to configured frontend origin only ──────────────────
+app.use(cors({
+  origin:      process.env.FRONTEND_URL || "http://localhost:8081",
+  credentials: true,
+}));
+
 app.use(express.json());
+
+// ── [H4] Rate limiting ────────────────────────────────────────────────────────
+// Global limiter: 100 requests per 15 minutes per IP
+const globalLimiter = rateLimit({
+  windowMs:       15 * 60 * 1000,
+  max:            100,
+  standardHeaders: true,
+  legacyHeaders:  false,
+  message:        { message: "Too many requests from this IP, please try again after 15 minutes." },
+});
+
+// Auth limiter: 10 requests per 15 minutes per IP (brute-force protection)
+const authLimiter = rateLimit({
+  windowMs:       15 * 60 * 1000,
+  max:            10,
+  standardHeaders: true,
+  legacyHeaders:  false,
+  message:        { message: "Too many login attempts. Please wait 15 minutes before trying again." },
+});
+
+app.use(globalLimiter);
 
 // [C1] Apply WAF globally — protects all 11 route groups (was only on 2)
 // [C2] express.static("/uploads") REMOVED — files must be accessed via authenticated
 //      /api/files/view/:id or /api/files/download/:id endpoints only
 app.use(wafMiddleware);
 
-// Routes
-app.use("/api/auth", authRoutes);
+// Routes — auth route gets the stricter limiter
+app.use("/api/auth", authLimiter, authRoutes);
 app.use("/api/files", fileRoutes);
 app.use("/api", protectedRoutes);
 app.use("/api/soc", socRoutes);
