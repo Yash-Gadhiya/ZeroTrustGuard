@@ -27,6 +27,15 @@ exports.setupTotp = async (req, res) => {
     const user = await User.findByPk(req.user.id);
     if (!user) return res.status(404).json({ message: "User not found" });
 
+    // Non-admin users who already have MFA enabled cannot regenerate a QR code directly.
+    // They must submit a reset request and wait for admin approval.
+    if (user.mfaEnabled && user.role !== "admin" && user.role !== "super_admin") {
+      return res.status(403).json({
+        message: "MFA already configured. To reset your authenticator, please submit a reset request for admin approval.",
+        needsApproval: true
+      });
+    }
+
     // Generate a new base32 secret tied to this account
     const secret = speakeasy.generateSecret({
       name:   `ZeroTrustGuard (${user.email})`,

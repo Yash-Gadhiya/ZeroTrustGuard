@@ -103,7 +103,7 @@ export function AppSidebar() {
       </div>
 
       {/* Navigation */}
-      <nav className="flex-1 p-3 space-y-1">
+      <nav className="flex-1 p-3 space-y-1 overflow-y-auto">
         {navItems.map((item) => {
 
           const isActive = location.pathname === item.path;
@@ -134,8 +134,9 @@ export function AppSidebar() {
         })}
       </nav>
 
-      {/* Footer */}
-      <div className="p-3 border-t">
+      {/* Footer — always pinned at bottom */}
+      <div className="p-3 border-t border-sidebar-border mt-auto shrink-0">
+
 
         <button
           onClick={handleLogout}

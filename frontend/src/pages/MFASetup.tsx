@@ -5,7 +5,7 @@ import UserProfileCard from "@/components/UserProfileCard";
 import { Loader2, ShieldCheck, Smartphone, Copy, CheckCircle2, KeyRound } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 
-type SetupStep = "idle" | "qr" | "confirm" | "done";
+type SetupStep = "idle" | "qr" | "confirm" | "done" | "request" | "requested";
 
 export default function MFASetup() {
   const [step, setStep]         = useState<SetupStep>("idle");
@@ -17,6 +17,8 @@ export default function MFASetup() {
   const [loading, setLoading]   = useState(false);
   const [error, setError]       = useState<string | null>(null);
   const [copied, setCopied]     = useState(false);
+  const [requestReason, setRequestReason] = useState("");
+  const [requestLoading, setRequestLoading] = useState(false);
 
   const navigate = useNavigate();
 
@@ -31,11 +33,30 @@ export default function MFASetup() {
       setQrCode(res.data.qrCode);
       setBackupCode(res.data.backupCode);
       setStep("qr");
-
     } catch (err: any) {
-      setError(err.response?.data?.message || "Failed to generate QR code. Please try again.");
+      // Backend signals that this user already has MFA and needs admin approval to reset
+      if (err.response?.data?.needsApproval) {
+        setStep("request");
+        setError(null);
+      } else {
+        setError(err.response?.data?.message || "Failed to generate QR code. Please try again.");
+      }
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleSubmitResetRequest = async () => {
+    if (!requestReason.trim()) return;
+    setRequestLoading(true);
+    setError(null);
+    try {
+      await api.post("/api/mfa/request-change", { reason: requestReason });
+      setStep("requested");
+    } catch (err: any) {
+      setError(err.response?.data?.message || "Failed to submit request. Please try again.");
+    } finally {
+      setRequestLoading(false);
     }
   };
 
@@ -127,13 +148,18 @@ export default function MFASetup() {
             </div>
             <div>
               <h1 className="text-2xl font-bold text-foreground">
-                {step === "done" ? "MFA Activated!" : "Setup Authenticator App"}
+                {step === "done"      ? "MFA Activated!" :
+                 step === "request"   ? "Reset Authenticator" :
+                 step === "requested" ? "Request Sent" :
+                 "Setup Authenticator App"}
               </h1>
               <p className="text-sm text-muted-foreground mt-2">
-                {step === "idle"  && "Protect your account with Google Authenticator or Authy."}
-                {step === "qr"    && "Scan the QR code with your authenticator app."}
-                {step === "confirm" && "Enter the 6-digit code from your app to confirm."}
-                {step === "done"  && "Your account is now protected. Redirecting..."}
+                {step === "idle"      && "Protect your account with Google Authenticator or Authy."}
+                {step === "qr"        && "Scan the QR code with your authenticator app."}
+                {step === "confirm"   && "Enter the 6-digit code from your app to confirm."}
+                {step === "done"      && "Your account is now protected. Redirecting..."}
+                {step === "request"   && "Submit a request below to have an admin reset your MFA."}
+                {step === "requested" && "Waiting for admin approval."}
               </p>
             </div>
           </div>
@@ -158,6 +184,49 @@ export default function MFASetup() {
                 {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : <Smartphone className="w-5 h-5" />}
                 {loading ? "Generating..." : "Generate QR Code"}
               </button>
+            </div>
+          )}
+
+          {/* ── Step: Request Admin Approval ── */}
+          {step === "request" && (
+            <div className="space-y-4 animate-in fade-in slide-in-from-bottom-4 duration-400">
+              <div className="bg-warning/10 border border-warning/30 rounded-lg p-4">
+                <p className="text-sm text-warning font-semibold mb-1">Admin Approval Required</p>
+                <p className="text-xs text-muted-foreground">
+                  Your MFA authenticator is already configured. To reset it and generate a new QR code,
+                  an admin must approve your request. Please provide a reason below.
+                </p>
+              </div>
+              {error && <p className="text-destructive text-sm text-center bg-destructive/10 p-2 rounded">{error}</p>}
+              <textarea
+                value={requestReason}
+                onChange={(e) => setRequestReason(e.target.value)}
+                placeholder="e.g. Got a new phone and need to re-enroll my authenticator app..."
+                className="w-full h-28 p-3 bg-background border border-border rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-primary resize-none"
+              />
+              <button
+                onClick={handleSubmitResetRequest}
+                disabled={requestLoading || !requestReason.trim()}
+                className="w-full py-3 bg-primary text-primary-foreground font-semibold rounded-lg hover:bg-primary/90 transition-all active:scale-[0.98] disabled:opacity-50 flex items-center justify-center gap-2"
+              >
+                {requestLoading ? <Loader2 className="w-5 h-5 animate-spin" /> : <KeyRound className="w-5 h-5" />}
+                {requestLoading ? "Submitting..." : "Submit Reset Request"}
+              </button>
+            </div>
+          )}
+
+          {/* ── Step: Request Submitted ── */}
+          {step === "requested" && (
+            <div className="flex flex-col items-center text-center space-y-4 animate-in fade-in zoom-in duration-500 py-4">
+              <div className="w-14 h-14 rounded-full bg-primary/10 border border-primary/20 flex items-center justify-center">
+                <CheckCircle2 className="w-7 h-7 text-primary" />
+              </div>
+              <p className="text-sm font-semibold">Request Submitted!</p>
+              <p className="text-xs text-muted-foreground">
+                Your MFA reset request has been sent to an admin for review.
+                You can track the status in the <strong>My Requests</strong> tab of your dashboard.
+                If urgent, please contact the IT department directly.
+              </p>
             </div>
           )}
 
