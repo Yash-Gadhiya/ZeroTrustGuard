@@ -4,6 +4,7 @@ import api from "../api/axios";
 import { AppSidebar } from "@/components/AppSidebar";
 import UserProfileCard from "@/components/UserProfileCard";
 import { PinModal } from "@/components/PinModal";
+import { useToast } from "@/hooks/use-toast";
 import {
   Trash2, ShieldOff, ShieldCheck, Clock, Users,
   Search, RefreshCw, AlertTriangle, Timer,
@@ -53,6 +54,7 @@ const roleBadge = (role: string) => {
 // ── Component ─────────────────────────────────────────────────────────────────
 export default function AdminUsers() {
   const [searchParams] = useSearchParams();
+  const { toast } = useToast();
 
   const [users,       setUsers]       = useState<User[]>([]);
   const [mfaRequests, setMfaRequests] = useState<MfaRequest[]>([]);
@@ -102,13 +104,13 @@ export default function AdminUsers() {
       try {
         await api.post(`/api/mfa/reject/${id}`, { reason });
         fetchAll(true);
-      } catch (err: any) { alert(err.response?.data?.message || "Failed to reject"); }
+      } catch (err: any) { toast({ title: "Reject Failed", description: err.response?.data?.message || "Failed to reject.", variant: "destructive" }); }
     } else {
       if (!window.confirm("Approve this MFA reset request?")) return;
       try {
         await api.post(`/api/mfa/approve/${id}`, {});
         fetchAll(true);
-      } catch (err: any) { alert(err.response?.data?.message || "Failed to approve"); }
+      } catch (err: any) { toast({ title: "Approve Failed", description: err.response?.data?.message || "Failed to approve.", variant: "destructive" }); }
     }
   };
 
@@ -143,7 +145,7 @@ export default function AdminUsers() {
       } else {
         setPinModalOpen(false);
         setPendingAction(null);
-        alert(err.response?.data?.message || "Action failed.");
+        toast({ title: "Action Failed", description: err.response?.data?.message || "Action failed.", variant: "destructive" });
       }
     }
   };

@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { AppSidebar } from "@/components/AppSidebar";
 import UserProfileCard from "@/components/UserProfileCard";
+import { useToast } from "@/hooks/use-toast";
 import { Loader2, Download, RefreshCw, ShieldAlert } from "lucide-react";
 import api from "../api/axios";
 
@@ -13,6 +14,7 @@ interface WebScan {
 }
 
 const WebSecurity = () => {
+  const { toast } = useToast();
   const [scans, setScans] = useState<WebScan[]>([]);
   const [targetUrl, setTargetUrl] = useState("");
   const [scanType, setScanType] = useState("Quick");
@@ -109,7 +111,7 @@ const WebSecurity = () => {
       setLogs(prev => [...prev, `[JARVIS] Audit reporting concluded natively. Table dynamically updated.`]);
     } catch (err: any) {
       setLogs(prev => [...prev, `[ERROR] ${err.message || "Failed to execute streaming scan."}`]);
-      alert(err.message || "Failed to start scan");
+      // error is already visible in the JARVIS terminal above
     } finally {
       setScanning(false);
       setActiveScanSessionId(null);
@@ -158,7 +160,7 @@ const WebSecurity = () => {
       window.URL.revokeObjectURL(url);
       a.remove();
     } catch (err: any) {
-      alert("Failed to download report");
+      toast({ title: "Download Failed", description: "Could not download the audit report. Please try again.", variant: "destructive" });
     }
   };
 

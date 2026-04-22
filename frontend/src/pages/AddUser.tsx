@@ -2,9 +2,11 @@ import { useState, useEffect } from "react";
 import { AppSidebar } from "@/components/AppSidebar";
 import UserProfileCard from "@/components/UserProfileCard";
 import { ChevronDown, Loader2, ShieldCheck } from "lucide-react"; 
+import { useToast } from "@/hooks/use-toast";
 import api from "../api/axios";
 
 const AddUser = () => {
+  const { toast } = useToast();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [role, setRole] = useState(""); 
@@ -61,7 +63,7 @@ const AddUser = () => {
 
   const createUser = async () => {
     if (!email || !password || !role || !department || !designation || level === "") {
-      alert("Please fill in all fields.");
+      toast({ title: "Incomplete Form", description: "Please fill in all fields before creating a user.", variant: "destructive" });
       return;
     }
 
@@ -72,11 +74,11 @@ const AddUser = () => {
       });
 
       if (res.status === 200 || res.status === 201) {
-        alert(`User created: ${designation} (Level ${level})`);
+        toast({ title: "User Created", description: `${designation} (Level ${level}) has been registered successfully.` });
         setEmail(""); setPassword(""); setRole(""); setDepartment(""); setDesignation(""); setLevel("");
       }
-    } catch (error) {
-      alert("Server error");
+    } catch (error: any) {
+      toast({ title: "Server Error", description: error?.response?.data?.message || "Could not create user. Please try again.", variant: "destructive" });
     } finally {
       setLoading(false);
     }

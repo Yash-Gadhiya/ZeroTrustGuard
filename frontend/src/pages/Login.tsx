@@ -71,9 +71,10 @@ const Login = () => {
       const res = await api.post("/api/mfa/request-change", { reason: message }, {
         headers: { Authorization: `Bearer ${tempToken}` }
       });
-      // Close modal and show success logic on main page if needed, or alert
-      alert(res.data.message || "Reset request submitted successfully. Please check your Dashboard's 'My Requests' tab if accessible, or contact the IT department directly to follow up on this request.");
+      // Show success inline: set a 'success' message in error slot (styled differently)
+      setMfaError("");
       setShowMfaModal(false);
+      setError(res.data.message || "Reset request submitted. The IT team will review your request shortly.");
       setTempToken("");
     } catch (err: any) {
       setMfaError(err.response?.data?.message || "Failed to submit reset request.");

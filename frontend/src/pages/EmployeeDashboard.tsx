@@ -161,7 +161,7 @@ const EmployeeDashboard = () => {
   const openRequestModal = (fileId: number) => { setSelectedFileId(fileId); setReason(""); setRequestModalOpen(true); };
 
   const submitAccessRequest = async () => {
-    if (!reason.trim()) { alert("Please provide a reason."); return; }
+    if (!reason.trim()) { toast({ title: "Reason Required", description: "Please provide a reason for your access request.", variant: "destructive" }); return; }
     setRequestLoading(true);
     try {
       await api.post("/api/files/request-access", { fileId: selectedFileId, reason });

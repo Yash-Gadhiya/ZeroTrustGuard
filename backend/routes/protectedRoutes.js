@@ -2,7 +2,6 @@ const express = require("express");
 const router = express.Router();
 
 const verifyToken = require("../middleware/authMiddleware");
-const { calculateRisk, riskDecision } = require("../services/riskEngine");
 
 const ActivityLog = require("../models/ActivityLog");
 const Alert = require("../models/Alert");

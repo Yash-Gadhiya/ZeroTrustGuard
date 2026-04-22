@@ -566,7 +566,9 @@ exports.deleteFile = async (req, res) => {
     try {
       if (fs.existsSync(filePath)) {
         fs.unlinkSync(filePath);
-        console.log(`[STORAGE] Physically deleted: ${filename}`);
+        if (process.env.NODE_ENV !== "production") {
+          console.log(`[STORAGE] Physically deleted: ${filename}`);
+        }
       } else {
         console.warn(`[STORAGE] File missing on disk: ${filename}. Proceeding to DB removal.`);
       }

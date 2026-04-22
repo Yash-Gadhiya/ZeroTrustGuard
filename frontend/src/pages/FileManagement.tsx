@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from "react";
 import { AppSidebar } from "@/components/AppSidebar";
 import UserProfileCard from "@/components/UserProfileCard";
 import { PinModal } from "@/components/PinModal";
+import { useToast } from "@/hooks/use-toast";
 import api from "../api/axios";
 import { socApi } from "@/lib/api";
 import {
@@ -41,6 +42,7 @@ const ALL_DEPTS = ["All Departments", "IT", "HR", "ACCOUNTS", "MARKETING"];
 
 // ── Component ─────────────────────────────────────────────────────────────────
 const FileManagement = () => {
+  const { toast } = useToast();
   // ── Tab ──────────────────────────────────────────────────────────────────
   const [activeTab, setActiveTab] = useState<"upload" | "files">("files");
 
@@ -107,7 +109,7 @@ const FileManagement = () => {
 
   // ── Upload ────────────────────────────────────────────────────────────────
   const uploadFile = async () => {
-    if (!file) { alert("Select a file first"); return; }
+    if (!file) { toast({ title: "No File Selected", description: "Please select a file before uploading.", variant: "destructive" }); return; }
     setUploading(true);
     const formData = new FormData();
     formData.append("file", file);
@@ -122,7 +124,7 @@ const FileManagement = () => {
       setFile(null); setAllowIntern(false); setAllowStaff(true);
       setAllowSenior(true); setSensitivity("low"); setTargetDepartments(["All Departments"]);
       setTimeout(() => { setUploadSuccess(false); setActiveTab("files"); fetchFiles(true); }, 1500);
-    } catch { alert("File upload failed."); }
+    } catch (err: any) { toast({ title: "Upload Failed", description: err?.response?.data?.message || "File upload failed. Please try again.", variant: "destructive" }); }
     finally { setUploading(false); }
   };
 
@@ -152,10 +154,10 @@ const FileManagement = () => {
         try {
           const data = JSON.parse(text);
           if (data.mfaRequired) { setDownloadPinError(data.message || "Invalid PIN"); return; }
-          alert(data.message || "Download failed.");
-        } catch { alert("Download failed."); }
+          toast({ title: "Download Failed", description: data.message || "Download failed.", variant: "destructive" });
+        } catch { toast({ title: "Download Failed", description: "Could not parse server response.", variant: "destructive" }); }
       } else {
-        alert(err.response?.data?.message || "Network error during download.");
+        toast({ title: "Download Failed", description: err.response?.data?.message || "Network error during download.", variant: "destructive" });
       }
       setPinModalOpen(false);
     }
@@ -168,7 +170,7 @@ const FileManagement = () => {
       await api.delete(`/api/files/${selectedFile.id}`);
       setDeleteModalOpen(false); setSelectedFile(null);
       setFiles(prev => prev.filter(f => f.id !== selectedFile.id));
-    } catch { alert("Failed to delete file."); }
+    } catch (err: any) { toast({ title: "Delete Failed", description: err?.response?.data?.message || "Failed to delete file.", variant: "destructive" }); }
     finally { setActionLoading(false); }
   };
 
@@ -195,7 +197,7 @@ const FileManagement = () => {
       });
       setEditModalOpen(false); setSelectedFile(null);
       fetchFiles(true);
-    } catch { alert("Failed to update permissions."); }
+    } catch (err: any) { toast({ title: "Update Failed", description: err?.response?.data?.message || "Failed to update permissions.", variant: "destructive" }); }
     finally { setActionLoading(false); }
   };
 

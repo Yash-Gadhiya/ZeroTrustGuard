@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { AppSidebar } from "@/components/AppSidebar";
 import UserProfileCard from "@/components/UserProfileCard";
+import { useToast } from "@/hooks/use-toast";
 import {
   Upload, FileUp, Lock, ShieldCheck, Loader2, FolderOpen,
 } from "lucide-react";
@@ -11,6 +12,7 @@ const ALL_DEPTS = ["All Departments", "IT", "HR", "ACCOUNTS", "MARKETING"];
 
 const EmployeeUpload = () => {
   const navigate = useNavigate();
+  const { toast } = useToast();
   const role = localStorage.getItem("ztg_role") || "intern";
 
   const isIntern = role === "intern";
@@ -62,7 +64,7 @@ const EmployeeUpload = () => {
   };
 
   const uploadFile = async () => {
-    if (!file) { alert("Please select a file first."); return; }
+    if (!file) { toast({ title: "No File Selected", description: "Please select a file before uploading.", variant: "destructive" }); return; }
     setUploading(true);
     const formData = new FormData();
     formData.append("file",              file);
@@ -77,7 +79,7 @@ const EmployeeUpload = () => {
       setFile(null);
       setTimeout(() => { setUploadSuccess(false); navigate("/dashboard"); }, 1800);
     } catch (err: any) {
-      alert(err.response?.data?.message || err.response?.data?.error || "Upload failed. Please try again.");
+      toast({ title: "Upload Failed", description: err.response?.data?.message || err.response?.data?.error || "Upload failed. Please try again.", variant: "destructive" });
     } finally { setUploading(false); }
   };
 

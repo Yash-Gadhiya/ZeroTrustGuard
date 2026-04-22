@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback, useRef } from "react";
 import { useSearchParams } from "react-router-dom";
 import { AppSidebar } from "@/components/AppSidebar";
 import UserProfileCard from "@/components/UserProfileCard";
+import { useToast } from "@/hooks/use-toast";
 import {
   Loader2, CheckCircle, XCircle, Clock, ShieldAlert, RefreshCw,
   History, FileText, ChevronDown, ChevronUp,
@@ -41,6 +42,7 @@ const statusBadge = (status: string) => {
 
 const ApprovalsDashboard = () => {
   const [searchParams] = useSearchParams();
+  const { toast } = useToast();
   const [activeTab, setActiveTab] = useState<Tab>(
     (searchParams.get("tab") as Tab) || "access"
   );
@@ -128,7 +130,7 @@ const ApprovalsDashboard = () => {
     try {
       await api.post(`/api/access-requests/${id}/approve`, { duration, allowDownload });
       setRequests(r => r.filter(req => req.id !== id));
-    } catch (err: any) { alert(err.response?.data?.message || "Failed to approve."); }
+    } catch (err: any) { toast({ title: "Approve Failed", description: err.response?.data?.message || "Failed to approve.", variant: "destructive" }); }
     setProcessingId(null);
   };
 
@@ -148,7 +150,7 @@ const ApprovalsDashboard = () => {
         setMfaRequests(r => r.filter(req => req.id !== rejectRequestId));
       }
       setRejectModalOpen(false);
-    } catch (err: any) { alert(err.response?.data?.message || "Failed to reject."); }
+    } catch (err: any) { toast({ title: "Reject Failed", description: err.response?.data?.message || "Failed to reject.", variant: "destructive" }); }
     finally { setProcessingId(null); }
   };
 
@@ -157,7 +159,7 @@ const ApprovalsDashboard = () => {
     try {
       await api.post(`/api/mfa/approve/${id}`, {});
       setMfaRequests(r => r.filter(req => req.id !== id));
-    } catch (err: any) { alert(err.response?.data?.message || "Failed to approve MFA reset."); }
+    } catch (err: any) { toast({ title: "MFA Approve Failed", description: err.response?.data?.message || "Failed to approve MFA reset.", variant: "destructive" }); }
     setProcessingId(null);
   };
 

@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 import { MonitorOff, Shield, Loader2, Wifi } from "lucide-react";
+import { useToast } from "@/hooks/use-toast";
 import api from "../api/axios";
 import { PinModal } from "@/components/PinModal";
 
@@ -25,6 +26,7 @@ interface Props {
 }
 
 export function SessionManagement({ currentJti }: Props) {
+  const { toast } = useToast();
   const [sessions, setSessions]     = useState<Session[]>([]);
   const [loading, setLoading]       = useState(true);
   const [kickTarget, setKickTarget] = useState<Session | null>(null);
@@ -64,7 +66,7 @@ export function SessionManagement({ currentJti }: Props) {
         setPinError(msg);
       } else {
         setKickTarget(null);
-        alert(msg);
+        toast({ title: "Session Revocation Failed", description: msg, variant: "destructive" });
       }
     } finally {
       setActionLoading(false);

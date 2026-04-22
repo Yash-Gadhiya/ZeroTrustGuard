@@ -18,7 +18,7 @@ const { Op }        = require("sequelize");
 // =======================
 exports.register = async (req, res) => {
   try {
-    const { name, email, password, department, designation, designation_level, role: requestedRole } = req.body;
+    const { name, email, password, department, designation, designation_level, role: requestedRole } = req.validated;
 
     // Input validation
     if (!email || !password) {

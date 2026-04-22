@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { AppSidebar } from "@/components/AppSidebar";
 import UserProfileCard from "@/components/UserProfileCard";
+import { useToast } from "@/hooks/use-toast";
 import {
   Activity, AlertTriangle, FileText, Loader2, RefreshCw,
   Search, Filter, Clock, Calendar, X,
@@ -57,6 +58,7 @@ const RISK_LABELS: Record<string, string> = {
 
 export default function ActivityLogs() {
   const navigate = useNavigate();
+  const { toast } = useToast();
   const [searchParams, setSearchParams] = useSearchParams();
 
   // ── Tab ──────────────────────────────────────────────────────────────────
@@ -216,7 +218,7 @@ export default function ActivityLogs() {
       URL.revokeObjectURL(url); a.remove();
     } catch (err: unknown) {
       const e = err as { response?: { data?: { message?: string } } };
-      alert(e.response?.data?.message || "Export failed.");
+      toast({ title: "Export Failed", description: e.response?.data?.message || "Export failed. Please try again.", variant: "destructive" });
     } finally { setExportLoading(null); }
   };
 
@@ -403,7 +405,9 @@ export default function ActivityLogs() {
               <button onClick={() => {
                 if (tempStartDate && tempEndDate) {
                   setStartDate(tempStartDate); setEndDate(tempEndDate); setCustomRangeModalOpen(false);
-                } else alert("Please select both dates.");
+                } else {
+                  toast({ title: "Select Both Dates", description: "Please select both a start and end date.", variant: "destructive" });
+                }
               }} className="px-4 py-2 text-sm font-medium bg-primary text-primary-foreground rounded-md">Apply Range</button>
             </div>
           </div>
