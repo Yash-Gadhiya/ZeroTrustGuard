@@ -7,62 +7,17 @@ const { calculateRisk, riskDecision } = require("../services/riskEngine");
 const ActivityLog = require("../models/ActivityLog");
 const Alert = require("../models/Alert");
 
-router.get("/access-sensitive", verifyToken, async (req, res) => {
-  try {
-    const sensitivity = 80;
-    const anomalyScore = Math.floor(Math.random() * 100);
-    const frequency = 40;
-    const context = 30;
+// [REMOVED] /access-sensitive was a dev-only test route using Math.random() for risk scoring.
+// Use the real risk engine endpoints instead.
 
-    const risk = calculateRisk({
-      sensitivity,
-      anomalyScore,
-      frequency,
-      context
-    });
-
-    const decision = riskDecision(risk);
-
-    // Log activity
-    await ActivityLog.create({
-      userId: req.user.id,
-      action: "ACCESS",
-      resource: "Sensitive Data",
-      ipAddress: req.ip || req.connection.remoteAddress,
-      riskScore: risk,
-      decision,
-      status: decision === "BLOCK" ? "FAILED" : "SUCCESS"
-    });
-
-    // If high risk → create alert
-    if (decision === "BLOCK") {
-      await Alert.create({
-        userId: req.user.id,
-        riskScore: risk,
-        reason: "High Risk Access Attempt"
-      });
-
-      return res.status(403).json({
-        message: "Access Blocked - High Risk",
-        riskScore: risk,
-        decision
-      });
-    }
-
-    res.json({
-      message: "Access Decision Completed",
-      riskScore: risk,
-      decision
-    });
-
-  } catch (error) {
-    console.error(error);
-    res.status(500).json({ error: "Internal Server Error" });
-  }
-});
-// Update Alert Status (SOC Action)
+// Update Alert Status (SOC Admin only)
 router.put("/soc/alerts/:id", verifyToken, async (req, res) => {
   try {
+    // [Security] Role check — this was missing, any user could mutate alerts
+    if (req.user.role !== "admin" && req.user.role !== "super_admin") {
+      return res.status(403).json({ message: "Access denied." });
+    }
+
     const { status } = req.body;
     const alertId = req.params.id;
 
@@ -74,7 +29,7 @@ router.put("/soc/alerts/:id", verifyToken, async (req, res) => {
 
     alert.status = status;
     await alert.save();
-    await alert.reload(); // ensures latest DB data
+    await alert.reload();
 
     res.json({
       message: "Alert status updated successfully",

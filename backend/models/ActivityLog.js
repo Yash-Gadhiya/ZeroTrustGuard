@@ -4,7 +4,7 @@ const { sequelize } = require("../config/database");
 const ActivityLog = sequelize.define("ActivityLog", {
   userId: {
     type: DataTypes.INTEGER,
-    allowNull: false
+    allowNull: true   // null = anonymous/system action (WAF blocks, log purge events)
   },
 
   action: {

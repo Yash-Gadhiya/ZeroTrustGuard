@@ -62,6 +62,7 @@ export function AppSidebar() {
     } finally {
       localStorage.removeItem("ztg_token");
       localStorage.removeItem("ztg_role");
+      localStorage.removeItem("ztg_temp_token"); // clear MFA enrollment temp token
       navigate("/login");
     }
   };

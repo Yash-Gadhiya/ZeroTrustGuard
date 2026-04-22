@@ -72,17 +72,24 @@ exports.getMyRequests = async (req, res) => {
 // approveRequest
 exports.approveRequest = async (req, res) => {
   try {
-    const requestId = req.params.id;
-    const { duration, allowDownload } = req.body; // expected: "30_minutes", "2_hours", "1_day", allowDownload: boolean
+    const requestId  = req.params.id;
+    const { duration, allowDownload } = req.validated; // use Zod-coerced values
     const approverId = req.user.id;
+    const approverRole = req.user.role;
 
-    const request = await AccessRequest.findByPk(requestId);
-    if (!request) {
-      return res.status(404).json({ message: "Request not found" });
-    }
+    const request = await AccessRequest.findByPk(requestId, {
+      include: [{ model: User, as: "Requester", attributes: ["id", "role"] }]
+    });
+    if (!request) return res.status(404).json({ message: "Request not found" });
+    if (request.status !== "pending") return res.status(400).json({ message: "Request is not pending" });
 
-    if (request.status !== "pending") {
-      return res.status(400).json({ message: "Request is not pending" });
+    // [Security] Enforce hierarchy: approver must outrank the requester
+    const requesterRole = request.Requester?.role;
+    const hierarchy = { intern: 0, staff: 1, senior: 2, admin: 3, super_admin: 4 };
+    const approverLevel  = hierarchy[approverRole]  ?? -1;
+    const requesterLevel = hierarchy[requesterRole] ?? -1;
+    if (approverLevel <= requesterLevel) {
+      return res.status(403).json({ message: "You are not authorized to approve this request." });
     }
 
     let expiresAt = new Date();
@@ -166,20 +173,22 @@ exports.approveRequest = async (req, res) => {
 // rejectRequest
 exports.rejectRequest = async (req, res) => {
   try {
-    const requestId = req.params.id;
-    const { reason } = req.body;
-    if (!reason || !reason.trim()) {
-      return res.status(400).json({ message: "Rejection reason is required." });
-    }
-    const approverId = req.user.id;
+    const requestId   = req.params.id;
+    const { reason }  = req.validated; // use Zod-coerced values
+    const approverId  = req.user.id;
+    const approverRole = req.user.role;
 
-    const request = await AccessRequest.findByPk(requestId);
-    if (!request) {
-      return res.status(404).json({ message: "Request not found" });
-    }
+    const request = await AccessRequest.findByPk(requestId, {
+      include: [{ model: User, as: "Requester", attributes: ["id", "role"] }]
+    });
+    if (!request) return res.status(404).json({ message: "Request not found" });
+    if (request.status !== "pending") return res.status(400).json({ message: "Request is not pending" });
 
-    if (request.status !== "pending") {
-      return res.status(400).json({ message: "Request is not pending" });
+    // [Security] Enforce hierarchy: approver must outrank the requester
+    const requesterRole = request.Requester?.role;
+    const hierarchy = { intern: 0, staff: 1, senior: 2, admin: 3, super_admin: 4 };
+    if ((hierarchy[approverRole] ?? -1) <= (hierarchy[requesterRole] ?? -1)) {
+      return res.status(403).json({ message: "You are not authorized to reject this request." });
     }
 
     request.status = "rejected";

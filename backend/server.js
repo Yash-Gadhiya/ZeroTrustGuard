@@ -209,6 +209,9 @@ async function startServer() {
     // [A1] Start the Temporary Access Expiry cron worker AFTER DB is ready
     require("./workers/accessExpiry.worker");
 
+    // [A2] Start the Log Purge worker — deletes ActivityLog rows older than 12 months (daily at 02:00)
+    require("./workers/logPurge.worker");
+
   } catch (error) {
     console.error("Startup error:", error);
   }

@@ -63,7 +63,7 @@ exports.getAlerts = async (req, res) => {
     };
 
     if (searchEmail) {
-      includeUser.where = { email: { [Op.like]: `%${searchEmail}%` } };
+      includeUser.where = { email: { [Op.like]: `%${String(searchEmail).slice(0, 254)}%` } };
       includeUser.required = true;
     }
 

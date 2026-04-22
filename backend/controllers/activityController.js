@@ -33,6 +33,9 @@ exports.getMyLogs = async (req, res) => {
     } else if (timeRange === "custom" && startDate && endDate) {
       const start = new Date(startDate);
       const end   = new Date(endDate);
+      if (start > end) {
+        return res.status(400).json({ message: "startDate must be before endDate" });
+      }
       end.setHours(23, 59, 59, 999);
       dateFilter = { [Op.between]: [start, end] };
     }
@@ -123,7 +126,7 @@ exports.getLogs = async (req, res) => {
     };
 
     if (searchEmail) {
-      includeUser.where = { email: { [Op.like]: `%${searchEmail}%` } };
+      includeUser.where = { email: { [Op.like]: `%${String(searchEmail).slice(0, 254)}%` } };
       includeUser.required = true;
     }
 
@@ -226,28 +229,33 @@ exports.exportLogs = async (req, res) => {
       attributes: ["email", "name", "department"],
     };
     if (searchEmail) {
-      includeUser.where = { email: { [Op.like]: `%${searchEmail}%` } };
+      includeUser.where = { email: { [Op.like]: `%${String(searchEmail).slice(0, 254)}%` } };
       includeUser.required = true;
     }
 
-    const logs = await ActivityLog.findAll({
-      where: baseConditions.length > 0 ? { [Op.and]: baseConditions } : {},
-      include: [includeUser],
-      order: [["createdAt", "DESC"]],
-    });
+    const whereClause = baseConditions.length > 0 ? { [Op.and]: baseConditions } : {};
+    const timestamp   = new Date().toISOString().replace(/[:.]/g, "-");
+    const BATCH       = 1000;
 
-    const timestamp = new Date().toISOString().replace(/[:.]/g, "-");
-
+    // ── CSV: true streaming — write 1000 rows at a time, never load all into memory ──
     if (format === "csv") {
       res.setHeader("Content-Type", "text/csv");
       res.setHeader("Content-Disposition", `attachment; filename=AuditTrail_${timestamp}.csv`);
+      res.write("Date,User Email,User Name,Department,Action,Resource,Risk Score,Decision,IP Address,Status\n");
 
-      const header = "Date,User Email,User Name,Department,Action,Resource,Risk Score,Decision,IP Address,Status\n";
-      const rows = logs.map(l => {
-        const escape = (v) => `"${String(v || "").replace(/"/g, '""')}"`;
-        return [
+      const escape = (v) => `"${String(v || "").replace(/"/g, '""')}"`;
+      let offset = 0, hasMore = true;
+
+      while (hasMore) {
+        const batch = await ActivityLog.findAll({
+          where: whereClause, include: [includeUser],
+          order: [["createdAt", "DESC"]], limit: BATCH, offset,
+        });
+        if (batch.length === 0) break;
+
+        res.write(batch.map(l => [
           escape(new Date(l.createdAt).toLocaleString()),
-          escape(l.User?.email || l.userId),
+          escape(l.User?.email || l.userId || "anon"),
           escape(l.User?.name || ""),
           escape(l.department || l.User?.department || ""),
           escape(l.action),
@@ -256,29 +264,34 @@ exports.exportLogs = async (req, res) => {
           escape(l.decision || ""),
           escape(l.ipAddress || ""),
           escape(l.status || ""),
-        ].join(",");
-      }).join("\n");
+        ].join(",")).join("\n") + "\n");
 
-      return res.send(header + rows);
+        if (batch.length < BATCH) hasMore = false;
+        offset += BATCH;
+      }
+      return res.end();
     }
 
-    // PDF format
+    // ── PDF: fetch with hard safety cap (PDF at 10k rows ≈ 2MB already) ──────────
+    const logs = await ActivityLog.findAll({
+      where: whereClause, include: [includeUser],
+      order: [["createdAt", "DESC"]], limit: 10000,
+    });
+
     const doc = new PDFDocument({ margin: 50, size: "A4" });
     res.setHeader("Content-Type", "application/pdf");
     res.setHeader("Content-Disposition", `attachment; filename=AuditTrail_${timestamp}.pdf`);
     doc.pipe(res);
 
-    // Background
     doc.rect(0, 0, doc.page.width, doc.page.height).fill("#0f172a");
     doc.fillColor("#f8fafc").font("Helvetica-Bold").fontSize(22).text("ZeroTrustGuard", 50, 50, { align: "center" });
     doc.fillColor("#94a3b8").font("Helvetica").fontSize(12).text("Audit Trail Export", { align: "center" });
     doc.fillColor("#64748b").fontSize(9).text(`Generated: ${new Date().toLocaleString()} — ${logs.length} records`, { align: "center" });
     doc.moveDown(2);
 
-    // Column headers — capture Y ONCE so all cells share the same baseline
-    const colX   = [50, 155, 275, 335, 400, 455, 505];
-    const colW   = [100, 115, 55,  60,  50,  45,  75];
-    const hdrs   = ["Date", "User Email", "Dept", "Action", "Resource", "Risk", "Decision"];
+    const colX = [50, 155, 275, 335, 400, 455, 505];
+    const colW = [100, 115, 55,  60,  50,  45,  75];
+    const hdrs = ["Date", "User Email", "Dept", "Action", "Resource", "Risk", "Decision"];
 
     const drawHeaders = () => {
       const hY = doc.y;
@@ -288,37 +301,27 @@ exports.exportLogs = async (req, res) => {
       doc.rect(50, doc.y, 505, 0.5).fill("#334155");
       doc.y += 6;
     };
-
     drawHeaders();
-
     doc.font("Helvetica").fontSize(7.5);
+
     logs.forEach(l => {
-      if (doc.y > 760) {
-        doc.addPage();
-        doc.rect(0, 0, doc.page.width, doc.page.height).fill("#0f172a");
-        doc.y = 40;
-        drawHeaders();          // repeat headers on every new page
-      }
-      const risk      = l.riskScore ?? 0;
+      if (doc.y > 760) { doc.addPage(); doc.rect(0, 0, doc.page.width, doc.page.height).fill("#0f172a"); doc.y = 40; drawHeaders(); }
+      const risk = l.riskScore ?? 0;
       const riskColor = risk >= 85 ? "#ef4444" : risk >= 65 ? "#f97316" : risk >= 30 ? "#facc15" : "#22c55e";
-      const rowY      = doc.y;
-      const vals = [
+      const rowY = doc.y;
+      [
         new Date(l.createdAt).toLocaleString().slice(0, 16),
-        (l.User?.email || String(l.userId)).slice(0, 24),
+        (l.User?.email || String(l.userId || "anon")).slice(0, 24),
         (l.department || l.User?.department || "").slice(0, 8),
         (l.action || "").slice(0, 12),
         (l.resource || "").slice(0, 10),
         String(risk),
         (l.decision || "").slice(0, 12),
-      ];
-      vals.forEach((v, i) => {
-        doc.fillColor(i === 5 ? riskColor : "#cbd5e1")
-           .text(v, colX[i], rowY, { width: colW[i], lineBreak: false });
-      });
+      ].forEach((v, i) => doc.fillColor(i === 5 ? riskColor : "#cbd5e1").text(v, colX[i], rowY, { width: colW[i], lineBreak: false }));
       doc.y = rowY + 14;
     });
-
     doc.end();
+
   } catch (error) {
     console.error("Export logs error:", error);
     if (!res.headersSent) res.status(500).json({ message: "Failed to export logs" });

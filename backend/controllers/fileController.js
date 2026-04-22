@@ -12,7 +12,6 @@ const { computeRisk } = require("../services/riskEngine");
 // Upload File
 exports.uploadFile = async (req, res) => {
   try {
-    console.log("--- START UPLOAD FILE ROUTE ---");
 
     if (!req.file) {
       return res.status(400).json({
