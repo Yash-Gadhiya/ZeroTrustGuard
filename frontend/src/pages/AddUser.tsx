@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { AppSidebar } from "@/components/AppSidebar";
 import UserProfileCard from "@/components/UserProfileCard";
-import { ChevronDown, Loader2, ShieldCheck } from "lucide-react"; 
+import { ChevronDown, Loader2, ShieldCheck, UserPlus, Mail, Lock, Building2, Briefcase } from "lucide-react"; 
 import { useToast } from "@/hooks/use-toast";
 import api from "../api/axios";
 
@@ -85,7 +85,7 @@ const AddUser = () => {
   };
 
   return (
-    <div className="flex min-h-screen bg-[#020817] text-slate-50 font-sans">
+    <div className="flex min-h-screen bg-background text-foreground">
       <AppSidebar />
       <main className="flex-1 p-8 relative overflow-y-auto">
         <div className="absolute top-6 right-8 z-50">
@@ -93,53 +93,121 @@ const AddUser = () => {
         </div>
 
         <div className="max-w-2xl mx-auto mt-10">
-          <h1 className="text-2xl font-bold mb-6">Add New User</h1>
-          <div className="bg-slate-900/50 border border-slate-800 p-8 rounded-xl space-y-4 shadow-2xl backdrop-blur-sm">
+          <div className="mb-8">
+            <h1 className="text-2xl font-bold flex items-center gap-2">
+              <UserPlus className="w-6 h-6 text-primary" /> Add New User
+            </h1>
+            <p className="text-sm text-muted-foreground mt-1">
+              Provision a new account with automated role and designation mapping.
+            </p>
+          </div>
+
+          <div className="glass-card p-8 rounded-xl border border-border space-y-6">
             
-            <input className="w-full p-3 bg-slate-950 border border-slate-800 rounded-md outline-none focus:border-blue-500" placeholder="Email" value={email} onChange={(e) => setEmail(e.target.value)} />
-            <input type="password" className="w-full p-3 bg-slate-950 border border-slate-800 rounded-md outline-none focus:border-blue-500" placeholder="Password" value={password} onChange={(e) => setPassword(e.target.value)} />
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div className="space-y-2">
+                <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Email Address</label>
+                <div className="relative">
+                  <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                  <input 
+                    className="w-full pl-10 pr-4 py-2.5 bg-secondary/50 border border-border rounded-lg outline-none focus:border-primary text-sm transition-colors placeholder:text-muted-foreground" 
+                    placeholder="analyst@zerotrust.io" 
+                    value={email} 
+                    onChange={(e) => setEmail(e.target.value)} 
+                  />
+                </div>
+              </div>
 
-            {/* Role Selection */}
-            <div className="relative">
-              <select className="w-full p-3 bg-slate-950 border border-slate-800 rounded-md appearance-none cursor-pointer outline-none focus:border-blue-500" value={role} onChange={(e) => handleRoleChange(e.target.value)}>
-                <option value="" disabled>Select Role</option>
-                <option value="intern">Intern</option>
-                <option value="staff">Staff</option>
-                <option value="senior">Senior</option>
-                <option value="admin">Admin</option>
-              </select>
-              <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500 pointer-events-none" />
-            </div>
+              <div className="space-y-2">
+                <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Temporary Password</label>
+                <div className="relative">
+                  <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                  <input 
+                    type="password" 
+                    className="w-full pl-10 pr-4 py-2.5 bg-secondary/50 border border-border rounded-lg outline-none focus:border-primary text-sm transition-colors placeholder:text-muted-foreground" 
+                    placeholder="••••••••" 
+                    value={password} 
+                    onChange={(e) => setPassword(e.target.value)} 
+                  />
+                </div>
+              </div>
 
-            {/* Department Selection */}
-            <div className="relative">
-              <select className="w-full p-3 bg-slate-950 border border-slate-800 rounded-md appearance-none outline-none focus:border-blue-500" value={department} onChange={(e) => handleDeptChange(e.target.value)}>
-                <option value="" disabled>Select Department</option>
-                <option value="IT">IT</option>
-                <option value="HR">HR</option>
-                <option value="ACCOUNTS">ACCOUNTS</option>
-              </select>
-              <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500 pointer-events-none" />
-            </div>
+              {/* Role Selection */}
+              <div className="space-y-2">
+                <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Base Role</label>
+                <div className="relative">
+                  <ShieldCheck className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                  <select 
+                    className="w-full pl-10 pr-10 py-2.5 bg-secondary/50 border border-border rounded-lg appearance-none cursor-pointer outline-none focus:border-primary text-sm transition-colors text-foreground" 
+                    value={role} 
+                    onChange={(e) => handleRoleChange(e.target.value)}
+                  >
+                    <option className="bg-background text-foreground" value="" disabled>Select Role</option>
+                    <option className="bg-background text-foreground" value="intern">Intern</option>
+                    <option className="bg-background text-foreground" value="staff">Staff</option>
+                    <option className="bg-background text-foreground" value="senior">Senior</option>
+                    <option className="bg-background text-foreground" value="admin">Admin</option>
+                  </select>
+                  <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none" />
+                </div>
+              </div>
 
-            {/* Auto-Designation (Read Only) */}
-            <div className="relative">
-              <div className="w-full p-3 bg-slate-900/30 border border-slate-800 rounded-md text-slate-400">
-                {designation || "Designation (Auto-set)"}
+              {/* Department Selection */}
+              <div className="space-y-2">
+                <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Department</label>
+                <div className="relative">
+                  <Building2 className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                  <select 
+                    className="w-full pl-10 pr-10 py-2.5 bg-secondary/50 border border-border rounded-lg appearance-none cursor-pointer outline-none focus:border-primary text-sm transition-colors text-foreground" 
+                    value={department} 
+                    onChange={(e) => handleDeptChange(e.target.value)}
+                  >
+                    <option className="bg-background text-foreground" value="" disabled>Select Department</option>
+                    <option className="bg-background text-foreground" value="IT">IT</option>
+                    <option className="bg-background text-foreground" value="HR">HR</option>
+                    <option className="bg-background text-foreground" value="ACCOUNTS">ACCOUNTS</option>
+                  </select>
+                  <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none" />
+                </div>
+              </div>
+
+              {/* Auto-Designation (Read Only) */}
+              <div className="space-y-2">
+                <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider flex items-center justify-between">
+                  Mapped Designation
+                  <span className="text-[10px] bg-primary/20 text-primary px-1.5 py-0.5 rounded">Auto</span>
+                </label>
+                <div className="relative">
+                  <Briefcase className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground/50" />
+                  <div className="w-full pl-10 pr-4 py-2.5 bg-secondary/30 border border-border/50 rounded-lg text-sm text-muted-foreground/80 flex items-center min-h-[42px]">
+                    {designation || "Pending assignment..."}
+                  </div>
+                </div>
+              </div>
+
+              {/* Auto-Level (Read Only) */}
+              <div className="space-y-2">
+                <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider flex items-center justify-between">
+                  Access Level
+                  <span className="text-[10px] bg-primary/20 text-primary px-1.5 py-0.5 rounded">Auto</span>
+                </label>
+                <div className="w-full px-4 py-2.5 bg-secondary/30 border border-border/50 rounded-lg text-sm text-muted-foreground/80 flex justify-between items-center min-h-[42px]">
+                  <span>{level ? `Level ${level}` : "Pending assignment..."}</span>
+                  {level && <ShieldCheck className="w-4 h-4 text-primary/70" />}
+                </div>
               </div>
             </div>
 
-            {/* Auto-Level (Read Only) */}
-            <div className="relative">
-              <div className="w-full p-3 bg-slate-900/30 border border-slate-800 rounded-md text-slate-400 flex justify-between items-center">
-                <span>{level ? `Level ${level}` : "Level (Auto-set)"}</span>
-                <ShieldCheck className="w-4 h-4 text-blue-500/50" />
-              </div>
+            <div className="pt-4 border-t border-border mt-6">
+              <button 
+                onClick={createUser} 
+                disabled={loading || !email || !password || !role || !department} 
+                className="w-full sm:w-auto px-8 py-2.5 rounded-lg bg-primary text-primary-foreground font-medium hover:bg-primary/90 disabled:opacity-50 transition-all flex items-center justify-center gap-2 ml-auto"
+              >
+                {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <UserPlus className="w-4 h-4" />}
+                {loading ? "Provisioning..." : "Provision User"}
+              </button>
             </div>
-
-            <button onClick={createUser} disabled={loading} className="w-full sm:w-48 py-3 rounded-md bg-blue-600 hover:bg-blue-500 text-white font-bold flex items-center justify-center gap-2">
-              {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : "Create User"}
-            </button>
           </div>
         </div>
       </main>
