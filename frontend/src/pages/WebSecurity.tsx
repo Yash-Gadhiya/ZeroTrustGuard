@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback } from "react";
 import { AppSidebar } from "@/components/AppSidebar";
 import UserProfileCard from "@/components/UserProfileCard";
 import { useToast } from "@/hooks/use-toast";
-import { Loader2, Download, RefreshCw, ShieldAlert } from "lucide-react";
+import { Loader2, Download, RefreshCw, ShieldAlert, Zap, Globe, Search, Clock } from "lucide-react";
 import api from "../api/axios";
 
 interface WebScan {
@@ -198,31 +198,37 @@ const WebSecurity = () => {
               <h3 className="text-lg font-semibold text-foreground flex items-center gap-2">
                 <ShieldAlert className="w-5 h-5 text-primary" /> Security Scanner
               </h3>
-              <div className="flex flex-col md:flex-row items-center gap-4">
-                <select
-                  value={scanType}
-                  onChange={(e) => setScanType(e.target.value)}
-                  className="px-4 py-2 rounded-md bg-secondary/50 border border-border text-foreground focus:outline-none focus:border-primary transition-colors"
-                >
-                  <option value="Quick">Quick Scan</option>
-                  <option value="Stealth">Stealth Scan</option>
-                  <option value="Vuln">Vulnerability Scan</option>
-                  <option value="Full">Full Scan</option>
-                  <option value="HEADER_AUDIT">Header Audit</option>
-                  <option value="SSL_SCAN">SSL/TLS Scan (Deep Audit)</option>
-                  <option value="CMS_SCAN">CMS Detection</option>
-                </select>
-                <input
-                  type="text"
-                  value={targetUrl}
-                  onChange={(e) => setTargetUrl(e.target.value)}
-                  placeholder="Enter target URL (e.g., http://localhost:5000)"
-                  className="flex-1 w-full px-4 py-2 rounded-md bg-secondary/50 border border-border text-foreground focus:outline-none focus:border-primary transition-colors"
-                />
+              <div className="grid grid-cols-1 md:grid-cols-[1fr_2fr_auto] gap-4">
+                <div className="relative">
+                  <Zap className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                  <select
+                    value={scanType}
+                    onChange={(e) => setScanType(e.target.value)}
+                    className="w-full pl-10 pr-10 py-2.5 rounded-lg bg-secondary/50 border border-border text-foreground appearance-none cursor-pointer outline-none focus:border-primary text-sm transition-colors"
+                  >
+                    <option className="bg-background text-foreground" value="Quick">Quick Scan</option>
+                    <option className="bg-background text-foreground" value="Stealth">Stealth Scan</option>
+                    <option className="bg-background text-foreground" value="Vuln">Vulnerability Scan</option>
+                    <option className="bg-background text-foreground" value="Full">Full Scan</option>
+                    <option className="bg-background text-foreground" value="HEADER_AUDIT">Header Audit</option>
+                    <option className="bg-background text-foreground" value="SSL_SCAN">SSL/TLS Scan (Deep Audit)</option>
+                    <option className="bg-background text-foreground" value="CMS_SCAN">CMS Detection</option>
+                  </select>
+                </div>
+                <div className="relative">
+                  <Globe className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                  <input
+                    type="text"
+                    value={targetUrl}
+                    onChange={(e) => setTargetUrl(e.target.value)}
+                    placeholder="Enter target URL (e.g., http://localhost:5000)"
+                    className="w-full pl-10 pr-4 py-2.5 rounded-lg bg-secondary/50 border border-border text-foreground outline-none focus:border-primary text-sm transition-colors placeholder:text-muted-foreground"
+                  />
+                </div>
                 <button
                   onClick={scanning ? stopScan : startSecurityAudit}
                   disabled={!scanning && !targetUrl}
-                  className={`px-6 py-2 rounded-md font-medium transition-colors disabled:opacity-50 flex items-center justify-center gap-2 w-full md:w-auto whitespace-nowrap ${
+                  className={`px-6 py-2.5 rounded-lg font-medium transition-colors disabled:opacity-50 flex items-center justify-center gap-2 w-full md:w-auto whitespace-nowrap text-sm ${
                     scanning
                       ? "bg-red-600 hover:bg-red-700 text-white"
                       : "bg-primary text-primary-foreground hover:bg-primary/90"
@@ -266,32 +272,38 @@ const WebSecurity = () => {
               </div>
             </div>
 
-            <div className="flex flex-col md:flex-row gap-4 mb-6">
-              <input
-                type="text"
-                placeholder="Search Target URL..."
-                value={filterTargetUrl}
-                onChange={(e) => setFilterTargetUrl(e.target.value)}
-                className="px-4 py-2 flex-1 rounded-md bg-secondary/50 border border-border text-foreground focus:outline-none focus:border-primary transition-colors"
-              />
-              <select
-                value={filterTimeRange}
-                onChange={(e) => setFilterTimeRange(e.target.value)}
-                className="px-4 py-2 rounded-md bg-secondary/50 border border-border text-foreground focus:outline-none focus:border-primary transition-colors"
-              >
-                <option value="all">All Time</option>
-                <option value="24_hours">Last 24 Hours</option>
-                <option value="7_days">Last 7 Days</option>
-                <option value="30_days">Last 30 Days</option>
-              </select>
+            <div className="grid grid-cols-1 md:grid-cols-[1fr_1fr_auto] gap-4 mb-6">
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                <input
+                  type="text"
+                  placeholder="Search Target URL..."
+                  value={filterTargetUrl}
+                  onChange={(e) => setFilterTargetUrl(e.target.value)}
+                  className="w-full pl-10 pr-4 py-2 rounded-lg bg-secondary/50 border border-border text-foreground outline-none focus:border-primary text-sm transition-colors placeholder:text-muted-foreground"
+                />
+              </div>
+              <div className="relative">
+                <Clock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                <select
+                  value={filterTimeRange}
+                  onChange={(e) => setFilterTimeRange(e.target.value)}
+                  className="w-full pl-10 pr-10 py-2 rounded-lg bg-secondary/50 border border-border text-foreground appearance-none cursor-pointer outline-none focus:border-primary text-sm transition-colors"
+                >
+                  <option className="bg-background text-foreground" value="all">All Time</option>
+                  <option className="bg-background text-foreground" value="24_hours">Last 24 Hours</option>
+                  <option className="bg-background text-foreground" value="7_days">Last 7 Days</option>
+                  <option className="bg-background text-foreground" value="30_days">Last 30 Days</option>
+                </select>
+              </div>
               <button
                 onClick={() => {
                   setFilterTargetUrl("");
                   setFilterTimeRange("all");
                 }}
-                className="px-4 py-2 border border-border rounded-md hover:bg-secondary/80 text-foreground transition-colors nowrap whitespace-nowrap"
+                className="px-6 py-2 border border-border rounded-lg hover:bg-secondary text-foreground text-sm font-medium transition-colors whitespace-nowrap"
               >
-                Clear History Filters
+                Clear Filters
               </button>
             </div>
 
