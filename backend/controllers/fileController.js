@@ -387,11 +387,8 @@ exports.downloadFile = async (req, res) => {
       decision: downloadRisk.decision
     });
 
-    // Handle relative or absolute paths appropriately
-    let filePath = file.path;
-    if (!path.isAbsolute(filePath)) {
-      filePath = path.join(__dirname, "..", filePath);
-    }
+    // Build path securely using the filename instead of the OS-dependent stored path
+    const filePath = path.join(__dirname, "..", "uploads", file.filename);
     
     res.download(filePath, file.originalName || file.filename);
 
@@ -523,10 +520,8 @@ exports.viewFile = async (req, res) => {
       decision: viewRisk.decision
     });
 
-    let filePath = file.path;
-    if (!path.isAbsolute(filePath)) {
-      filePath = path.join(__dirname, "..", filePath);
-    }
+    // Build path securely using the filename instead of the OS-dependent stored path
+    const filePath = path.join(__dirname, "..", "uploads", file.filename);
 
     // THE FIX: Set headers before sending
     res.setHeader('Content-Type', 'application/pdf');
@@ -560,7 +555,7 @@ exports.deleteFile = async (req, res) => {
 
     const filename = file.filename;
     // Specifically target the uploads directory. Note: controller is in backend/controllers
-    const filePath = path.join(__dirname, "..", "..", "uploads", filename);
+    const filePath = path.join(__dirname, "..", "uploads", filename);
     
     // 1. Delete physical file first
     try {
