@@ -53,6 +53,7 @@ const EmployeeDashboard = () => {
 
   // PIN / view / download
   const [pinModalOpen,     setPinModalOpen]   = useState(false);
+  const [pinLoading,       setPinLoading]     = useState(false);
   const [fileToProcess,    setFileToProcess]  = useState<{ id: number; filename: string; originalName: string; action: "view" | "download" } | null>(null);
   const [pinError,         setPinError]       = useState("");
   const [viewerUrl,        setViewerUrl]      = useState<string | null>(null);
@@ -111,28 +112,33 @@ const EmployeeDashboard = () => {
 
   const processAction = async (pin: string) => {
     if (!fileToProcess) return;
-    if (fileToProcess.action === "view") {
-      try {
-        const res = await api.get(`/api/files/view/${fileToProcess.id}`, {
-          responseType: "blob", headers: { "x-mfa-pin": pin },
-        });
-        const blob = new Blob([res.data], { type: res.headers["content-type"] || "application/octet-stream" });
-        setViewerUrl(window.URL.createObjectURL(blob));
-        setViewerFilename(fileToProcess.originalName || fileToProcess.filename);
-        setPinModalOpen(false); setFileToProcess(null);
-      } catch (err: any) { await handleFileError(err, "View"); }
-    } else {
-      try {
-        const res = await api.get(`/api/files/download/${fileToProcess.id}`, {
-          responseType: "blob", headers: { "x-mfa-pin": pin },
-        });
-        const url = window.URL.createObjectURL(new Blob([res.data]));
-        const a = document.createElement("a");
-        a.href = url; a.download = fileToProcess.originalName || fileToProcess.filename;
-        document.body.appendChild(a); a.click();
-        window.URL.revokeObjectURL(url); a.remove();
-        setPinModalOpen(false); setFileToProcess(null);
-      } catch (err: any) { await handleFileError(err, "Download"); }
+    setPinLoading(true);
+    try {
+      if (fileToProcess.action === "view") {
+        try {
+          const res = await api.get(`/api/files/view/${fileToProcess.id}`, {
+            responseType: "blob", headers: { "x-mfa-pin": pin },
+          });
+          const blob = new Blob([res.data], { type: res.headers["content-type"] || "application/octet-stream" });
+          setViewerUrl(window.URL.createObjectURL(blob));
+          setViewerFilename(fileToProcess.originalName || fileToProcess.filename);
+          setPinModalOpen(false); setFileToProcess(null);
+        } catch (err: any) { await handleFileError(err, "View"); }
+      } else {
+        try {
+          const res = await api.get(`/api/files/download/${fileToProcess.id}`, {
+            responseType: "blob", headers: { "x-mfa-pin": pin },
+          });
+          const url = window.URL.createObjectURL(new Blob([res.data]));
+          const a = document.createElement("a");
+          a.href = url; a.download = fileToProcess.originalName || fileToProcess.filename;
+          document.body.appendChild(a); a.click();
+          window.URL.revokeObjectURL(url); a.remove();
+          setPinModalOpen(false); setFileToProcess(null);
+        } catch (err: any) { await handleFileError(err, "Download"); }
+      }
+    } finally {
+      setPinLoading(false);
     }
   };
 
@@ -190,6 +196,7 @@ const EmployeeDashboard = () => {
         isOpen={pinModalOpen}
         onClose={() => setPinModalOpen(false)}
         onSubmit={processAction}
+        loading={pinLoading}
         error={pinError}
         title={fileToProcess?.action === "view" ? "View Secured File" : "Download Secured File"}
         description={`Enter your 6-digit authenticator code to ${fileToProcess?.action} ${fileToProcess?.originalName || fileToProcess?.filename}`}

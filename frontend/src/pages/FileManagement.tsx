@@ -137,6 +137,7 @@ const FileManagement = () => {
 
   const processDownload = async (pin: string) => {
     if (!fileToDownload) return;
+    setActionLoading(true);
     try {
       const res = await api.get(`/api/files/download/${fileToDownload.id}`, {
         responseType: "blob",
@@ -160,6 +161,8 @@ const FileManagement = () => {
         toast({ title: "Download Failed", description: err.response?.data?.message || "Network error during download.", variant: "destructive" });
       }
       setPinModalOpen(false);
+    } finally {
+      setActionLoading(false);
     }
   };
 
@@ -218,6 +221,7 @@ const FileManagement = () => {
         isOpen={pinModalOpen}
         onClose={() => setPinModalOpen(false)}
         onSubmit={processDownload}
+        loading={actionLoading}
         error={downloadPinError}
         title="Download Secured File"
         description={`Enter your 6-digit authenticator code to download "${fileToDownload?.filename}"`}

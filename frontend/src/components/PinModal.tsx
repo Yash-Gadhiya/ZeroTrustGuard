@@ -66,9 +66,6 @@ export function PinModal({
     if (e.key === "Backspace" && !digits[index] && index > 0) {
       inputRefs.current[index - 1]?.focus();
     }
-    if (e.key === "Enter" && token.length === 6 && !loading) {
-      onSubmit(token);
-    }
   };
 
   const handleSubmit = (e: React.FormEvent) => {
