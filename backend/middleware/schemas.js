@@ -107,11 +107,11 @@ exports.accessRequestSchema = z.object({
 
 exports.approveRequestSchema = z.object({
   duration: z
-    .enum(["30_minutes", "2_hours", "1_day"], {
-      errorMap: () => ({ message: "Duration must be one of: 30_minutes, 2_hours, 1_day" }),
+    .enum(["30_minutes", "1_hour", "2_hours", "1_day"], {
+      errorMap: () => ({ message: "Duration must be one of: 30_minutes, 1_hour, 2_hours, 1_day" }),
     })
     .optional()
-    .default("2_hours"),
+    .default("1_hour"),
 
   allowDownload: z
     .boolean()
