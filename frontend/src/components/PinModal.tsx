@@ -3,8 +3,7 @@ import { Loader2, X, Lock } from "lucide-react";
 
 /**
  * PinModal — 4-digit PIN challenge modal for post-login sensitive actions.
- * Used wherever a PIN is required inside the app (file view/download/upload,
- * admin user management, session revocation, file management).
+ * Each slot shows a dot (●) via type="password" instead of the raw digit.
  *
  * For the login TOTP step (6-digit), use TotpModal instead.
  */
@@ -36,7 +35,6 @@ export function PinModal({
     if (isOpen) {
       setDigits(Array(4).fill(""));
       submitLock.current = false;
-      // defer to next frame so the modal has rendered
       requestAnimationFrame(() => inputRefs.current[0]?.focus());
     }
   }, [isOpen]);
@@ -50,24 +48,43 @@ export function PinModal({
   const pin = digits.join("");
 
   const handleChange = (index: number, value: string) => {
-    if (!/^\d*$/.test(value)) return;
-    const newDigits = [...digits];
-    if (value.length > 1) {
-      const pasted = value.replace(/\D/g, "").slice(0, 4);
-      const updated = [...digits];
-      pasted.split("").forEach((d, i) => { if (index + i < 4) updated[index + i] = d; });
-      setDigits(updated);
-      inputRefs.current[Math.min(index + pasted.length, 3)]?.focus();
-      return;
-    }
-    newDigits[index] = value;
-    setDigits(newDigits);
-    if (value && index < 3) inputRefs.current[index + 1]?.focus();
+    // Extract only the last digit typed (ignores browser password masking artifacts)
+    const digit = value.replace(/\D/g, "").slice(-1);
+    const updated = [...digits];
+    updated[index] = digit;
+    setDigits(updated);
+    if (digit && index < 3) inputRefs.current[index + 1]?.focus();
   };
 
   const handleKeyDown = (index: number, e: React.KeyboardEvent) => {
-    if (e.key === "Backspace" && !digits[index] && index > 0) inputRefs.current[index - 1]?.focus();
+    if (e.key === "Backspace") {
+      if (digits[index]) {
+        // Clear current slot
+        const updated = [...digits];
+        updated[index] = "";
+        setDigits(updated);
+      } else if (index > 0) {
+        // Move to previous slot and clear it
+        const updated = [...digits];
+        updated[index - 1] = "";
+        setDigits(updated);
+        inputRefs.current[index - 1]?.focus();
+      }
+      e.preventDefault();
+    }
     if (e.key === "Enter" && pin.length === 4 && !loading) handleSubmit();
+  };
+
+  const handlePaste = (e: React.ClipboardEvent, startIndex: number) => {
+    e.preventDefault();
+    const pasted = e.clipboardData.getData("text").replace(/\D/g, "").slice(0, 4);
+    if (!pasted) return;
+    const updated = [...digits];
+    pasted.split("").forEach((d, i) => {
+      if (startIndex + i < 4) updated[startIndex + i] = d;
+    });
+    setDigits(updated);
+    inputRefs.current[Math.min(startIndex + pasted.length, 3)]?.focus();
   };
 
   const handleSubmit = () => {
@@ -79,7 +96,10 @@ export function PinModal({
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in duration-200">
       <div className="bg-background border border-border rounded-xl max-w-xs w-full shadow-2xl overflow-hidden relative">
-        <button onClick={onClose} className="absolute top-4 right-4 p-1 rounded-full hover:bg-muted text-muted-foreground transition-colors">
+        <button
+          onClick={onClose}
+          className="absolute top-4 right-4 p-1 rounded-full hover:bg-muted text-muted-foreground transition-colors"
+        >
           <X className="w-5 h-5" />
         </button>
 
@@ -95,18 +115,20 @@ export function PinModal({
           </div>
 
           <div className="space-y-5">
-            {/* 4-digit PIN slots */}
+            {/* 4 password slots — browser renders dots automatically */}
             <div className="flex justify-center gap-3">
               {digits.map((digit, i) => (
                 <input
                   key={i}
                   ref={(el) => { inputRefs.current[i] = el; }}
-                  type="text"
+                  type="password"
                   inputMode="numeric"
-                  maxLength={4}
+                  maxLength={1}
                   value={digit}
+                  autoComplete="off"
                   onChange={(e) => handleChange(i, e.target.value)}
                   onKeyDown={(e) => handleKeyDown(i, e)}
+                  onPaste={(e) => handlePaste(e, i)}
                   className={`w-14 h-14 text-center text-2xl font-mono font-bold rounded-xl border-2 bg-secondary text-foreground
                     focus:outline-none transition-all select-none
                     ${digit ? "border-primary bg-primary/10" : "border-border"}
