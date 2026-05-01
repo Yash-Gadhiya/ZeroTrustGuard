@@ -116,6 +116,7 @@ export default function AdminUsers() {
 
   // ── PIN-gated actions ─────────────────────────────────────────────────────
   const triggerAction = (type: ActionType, id: number, extra?: string) => {
+    setLockoutModalUser(null);   // dismiss lockout picker first
     setPendingAction({ type, id, extra });
     setAdminPinError("");
     setPinModalOpen(true);
