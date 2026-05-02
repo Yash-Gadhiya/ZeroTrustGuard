@@ -208,7 +208,7 @@ const SOCDashboard = () => {
       gradient: "from-purple-600/20 to-purple-800/10",
       border: "border-purple-500/20",
       text: "text-purple-400",
-      path: "/activity-logs?tab=files",
+      path: "/file-management",
     },
     {
       label: "Access Requests",
@@ -393,7 +393,7 @@ const SOCDashboard = () => {
               <BarChart
                 data={[
                   { name: "Users",    count: stats.totalUsers,    fill: "#3b82f6", path: "/soc/users" },
-                  { name: "Files",    count: stats.totalFiles,    fill: "#8b5cf6", path: "/activity-logs?tab=files" },
+                  { name: "Files",    count: stats.totalFiles,    fill: "#8b5cf6", path: "/file-management" },
                   { name: "Requests", count: stats.totalRequests, fill: "#06b6d4", path: "/approvals" },
                   { name: "Alerts",   count: stats.totalAlerts,   fill: "#ef4444", path: "/activity-logs?tab=alerts" },
                 ]}
